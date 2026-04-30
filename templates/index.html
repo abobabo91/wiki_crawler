@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WikiRace AI Benchmark</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0d1117;color:#e6edf3;min-height:100vh}
+::-webkit-scrollbar{width:6px;background:#161b22}::-webkit-scrollbar-thumb{background:#30363d;border-radius:3px}
+
+.header{background:#161b22;border-bottom:1px solid #30363d;padding:14px 24px;display:flex;align-items:center;gap:12px}
+.header h1{font-size:1.3rem;font-weight:700}
+.header .sub{font-size:.82rem;color:#8b949e;margin-left:auto}
+.tabs{display:flex;gap:2px;padding:0 24px;background:#161b22;border-bottom:1px solid #30363d}
+.tab{padding:11px 18px;cursor:pointer;color:#8b949e;font-size:.88rem;border-bottom:2px solid transparent;transition:all .15s}
+.tab:hover{color:#e6edf3}.tab.active{color:#58a6ff;border-bottom-color:#58a6ff}
+.pane{display:none;padding:20px 24px;max-width:1200px;margin:0 auto}.pane.active{display:block}
+
+.card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:18px;margin-bottom:14px}
+.card h3{font-size:.78rem;color:#8b949e;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+label{display:block;font-size:.83rem;color:#8b949e;margin-bottom:5px}
+input,select{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px 11px;color:#e6edf3;font-size:.88rem;outline:none}
+input:focus,select:focus{border-color:#58a6ff}
+
+/* Selector bar */
+.sel-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.sel-btn{padding:4px 13px;border-radius:16px;border:1px solid #30363d;background:#0d1117;color:#8b949e;font-size:.76rem;cursor:pointer;transition:all .15s;font-weight:500}
+.sel-btn:hover{border-color:#58a6ff;color:#58a6ff}
+.sel-btn.on{background:#1a2a3a;border-color:#58a6ff;color:#58a6ff}
+.sel-btn.on-openai{background:#0d2a1f;border-color:#10c87f;color:#10c87f}
+.sel-btn.on-gemini{background:#0d1a3a;border-color:#4285f4;color:#4285f4}
+.sel-btn.on-anthropic{background:#3a1a0d;border-color:#e8937a;color:#e8937a}
+.sel-btn.on-mistral{background:#3a2200;border-color:#ff9a3c;color:#ff9a3c}
+.sel-btn.on-groq{background:#1a0d3a;border-color:#8b5cf6;color:#8b5cf6}
+
+/* Model grid */
+.model-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:6px}
+.mc{display:flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid #30363d;border-radius:7px;cursor:pointer;transition:all .15s;background:#0d1117}
+.mc:hover{border-color:#58a6ff;background:#161b22}
+.mc.on{border-color:var(--c);background:#161b22}
+.mc.off{opacity:.35;cursor:not-allowed}
+.mc input[type=checkbox]{accent-color:var(--c);width:13px;height:13px;flex-shrink:0}
+.mc .dot{width:7px;height:7px;border-radius:50%;background:var(--c);flex-shrink:0}
+.mc .lbl{font-size:.8rem;color:#e6edf3;flex:1}
+.mc .prov{font-size:.63rem;color:#6e7681}
+
+/* Buttons */
+.btn{padding:9px 20px;border:none;border-radius:7px;font-size:.88rem;font-weight:600;cursor:pointer;transition:all .15s}
+.btn-green{background:#238636;color:#fff}.btn-green:hover{background:#2ea043}
+.btn-green:disabled{background:#30363d;color:#8b949e;cursor:not-allowed}
+.btn-red{background:#da3633;color:#fff}.btn-red:hover{background:#f85149}
+.btn-sm{padding:5px 13px;font-size:.78rem}
+.btn-ghost{background:transparent;border:1px solid #30363d;color:#8b949e}.btn-ghost:hover{border-color:#58a6ff;color:#58a6ff}
+.flex{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mt{margin-top:12px}
+
+/* Race lanes */
+.race-hdr{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.race-hdr h2{font-size:1rem;font-weight:600}
+.route-tag{font-size:.83rem;color:#8b949e}
+.route-tag span{color:#58a6ff;font-weight:600}
+.lanes{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.lane{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:14px;transition:border-color .3s}
+.lane.success{border-color:#238636}.lane.failed{border-color:#da3633}.lane.running{border-color:#388bfd}
+.lane-hd{display:flex;align-items:center;gap:7px;margin-bottom:8px}
+.ldot{width:9px;height:9px;border-radius:50%;background:var(--c);flex-shrink:0}
+.lname{font-weight:600;font-size:.87rem;flex:1}
+.lstatus{font-size:.72rem;padding:2px 7px;border-radius:12px;background:#21262d;color:#8b949e}
+.lstatus.success{background:#1a3a1f;color:#3fb950}.lstatus.failed{background:#3a1a1a;color:#f85149}
+.lstatus.running{background:#1a2a3a;color:#58a6ff}
+.lscore{font-size:1.2rem;font-weight:700;color:var(--c);margin-left:auto}
+.lbar-wrap{height:4px;background:#21262d;border-radius:2px;margin:7px 0}
+.lbar{height:100%;border-radius:2px;background:var(--c);transition:width .4s;max-width:100%}
+.lpage{font-size:.8rem;color:#8b949e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lreason{font-size:.75rem;color:#6e7681;margin-top:3px;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lsteps{font-size:.77rem;color:#6e7681;margin-top:5px}
+.path-scroll{margin-top:7px;max-height:90px;overflow-y:auto;font-size:.72rem;color:#6e7681;line-height:1.7}
+.pi:last-child{color:#e6edf3;font-weight:500}
+
+/* Leaderboard */
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{text-align:left;padding:9px 12px;color:#8b949e;font-weight:500;font-size:.76rem;border-bottom:1px solid #30363d;text-transform:uppercase;letter-spacing:.04em}
+td{padding:9px 12px;border-bottom:1px solid #21262d}
+tr:last-child td{border-bottom:none}tr:hover td{background:#21262d}
+.rk{font-weight:700;color:#8b949e;width:30px}.rk1{color:#ffd700}.rk2{color:#c0c0c0}.rk3{color:#cd7f32}
+.sc{font-weight:700;font-size:.95rem}
+.wbar{display:inline-block;height:5px;border-radius:3px;vertical-align:middle;margin-left:5px;background:#238636}
+
+/* Settings */
+.krow{display:grid;grid-template-columns:150px 1fr auto;align-items:center;gap:9px;margin-bottom:10px}
+.krow label{margin:0;color:#c9d1d9;font-size:.86rem}
+.kstat{font-size:.72rem;padding:2px 8px;border-radius:10px}
+.kstat.ok{background:#1a3a1f;color:#3fb950}.kstat.no{background:#3a1a1a;color:#f85149}
+input[type=password]{font-family:monospace;letter-spacing:.08em}
+.empty{text-align:center;padding:36px;color:#8b949e;font-size:.88rem}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span style="font-size:1.5rem">🏁</span>
+  <h1>WikiRace AI Benchmark</h1>
+  <div class="sub">How smart are AIs at navigating Wikipedia?</div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('race')">🏎️ Race</div>
+  <div class="tab" onclick="showTab('leaderboard')">🏆 Leaderboard</div>
+  <div class="tab" onclick="showTab('settings')">⚙️ Settings</div>
+</div>
+
+<!-- RACE -->
+<div id="pane-race" class="pane active">
+  <div class="two-col">
+    <div class="card">
+      <h3>📍 Route</h3>
+      <div style="display:flex;gap:9px;align-items:flex-end;flex-wrap:wrap">
+        <div style="flex:1;min-width:110px">
+          <label>Start Article</label>
+          <input id="inp-start" placeholder="e.g. Pizza" value="Pizza">
+        </div>
+        <div style="color:#8b949e;font-size:1.1rem;margin-bottom:9px">→</div>
+        <div style="flex:1;min-width:110px">
+          <label>Target Article</label>
+          <input id="inp-target" placeholder="e.g. Albert Einstein" value="Albert Einstein">
+        </div>
+      </div>
+      <div class="mt">
+        <label>Or pick a challenge preset</label>
+        <select id="sel-preset" onchange="applyPreset()">
+          <option value="">— Custom —</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🤖 Models to Race</h3>
+      <!-- Group selector -->
+      <div class="sel-bar" id="sel-bar"></div>
+      <!-- Individual checkboxes -->
+      <div class="model-grid" id="model-grid"></div>
+    </div>
+  </div>
+
+  <div class="flex mt">
+    <button class="btn btn-green" id="btn-start" onclick="startRace()">▶ Start Race</button>
+    <button class="btn btn-red" id="btn-cancel" style="display:none" onclick="cancelRace()">⏹ Stop</button>
+    <span id="race-info" style="color:#8b949e;font-size:.84rem"></span>
+  </div>
+
+  <div id="race-area" style="margin-top:22px;display:none">
+    <div class="race-hdr">
+      <span>🏁</span><h2>Live Race</h2>
+      <div class="route-tag"><span id="ra-start"></span> → <span id="ra-target"></span></div>
+    </div>
+    <div class="lanes" id="lanes"></div>
+  </div>
+</div>
+
+<!-- LEADERBOARD -->
+<div id="pane-leaderboard" class="pane">
+  <div class="flex" style="margin-bottom:14px">
+    <h2 style="font-size:1rem;font-weight:600;flex:1">🏆 AI Leaderboard</h2>
+    <button class="btn btn-sm btn-ghost" onclick="loadLB()">↻ Refresh</button>
+    <button class="btn btn-sm btn-red" onclick="clearResults()">🗑 Clear</button>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div id="lb-body"><div class="empty">No results yet — run a race first!</div></div>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div id="pane-settings" class="pane">
+  <div class="card">
+    <h3>🔑 API Keys</h3>
+    <p style="font-size:.81rem;color:#8b949e;margin-bottom:14px">Stored locally in config.json. Only providers with a key appear as available.</p>
+    <div id="key-grid"></div>
+    <div class="mt"><button class="btn btn-green" onclick="saveKeys()">💾 Save Keys</button></div>
+  </div>
+</div>
+
+<script>
+const MAX_S = 20;
+let models=[], cfg={}, currentRunId=null, pollTimer=null;
+
+const PROV = {openai:"OpenAI", gemini:"Google", anthropic:"Anthropic", mistral:"Mistral", groq:"Groq"};
+const KEYS = [
+  {k:"openai_key",    lbl:"OpenAI",        ph:"sk-proj-..."},
+  {k:"gemini_key",    lbl:"Google Gemini", ph:"AIzaSy..."},
+  {k:"anthropic_key", lbl:"Anthropic",     ph:"sk-ant-..."},
+  {k:"mistral_key",   lbl:"Mistral",       ph:"..."},
+  {k:"groq_key",      lbl:"Groq",          ph:"gsk_..."},
+];
+
+const GROUPS = [
+  {lbl:"All",       cls:"",          fn: m=>m.available},
+  {lbl:"OpenAI",    cls:"on-openai", fn: m=>m.provider==="openai"    && m.available},
+  {lbl:"Gemini",    cls:"on-gemini", fn: m=>m.provider==="gemini"    && m.available},
+  {lbl:"Anthropic", cls:"on-anthropic",fn:m=>m.provider==="anthropic"&& m.available},
+  {lbl:"Mistral",   cls:"on-mistral",fn: m=>m.provider==="mistral"   && m.available},
+  {lbl:"Groq",      cls:"on-groq",  fn:  m=>m.provider==="groq"      && m.available},
+  {lbl:"Clear all", cls:"",          fn: ()=>false},
+];
+
+async function api(path, opts){
+  const r = await fetch(path,{headers:{"Content-Type":"application/json"},...opts});
+  return r.json();
+}
+
+async function init(){
+  [models, cfg] = await Promise.all([api("/api/models"), api("/api/config")]);
+  buildSelBar(); buildModelGrid(); buildKeyGrid(); loadPresets(); loadLB();
+}
+
+/* ── Selector bar ── */
+function buildSelBar(){
+  const bar = document.getElementById("sel-bar"); bar.innerHTML="";
+  GROUPS.forEach((g,i)=>{
+    const b = document.createElement("button");
+    b.className = "sel-btn"; b.textContent = g.lbl; b.dataset.gi = i;
+    b.onclick = ()=>applyGroup(i);
+    bar.appendChild(b);
+  });
+}
+
+function applyGroup(gi){
+  const g = GROUPS[gi];
+  document.querySelectorAll(".mc").forEach(el=>{
+    const m = models.find(x=>x.id===el.dataset.id);
+    const cb = el.querySelector("input");
+    if(!cb || cb.disabled) return;
+    const on = g.fn(m);
+    cb.checked = on; el.classList.toggle("on", on);
+  });
+  // Highlight active group button
+  document.querySelectorAll(".sel-btn").forEach((b,i)=>{
+    b.className = "sel-btn" + (i===gi && gi!==GROUPS.length-1 ? (" on "+(g.cls||"on")).trim() : "");
+  });
+}
+
+/* ── Model grid ── */
+function buildModelGrid(){
+  const g = document.getElementById("model-grid"); g.innerHTML="";
+  models.forEach(m=>{
+    const el = document.createElement("label");
+    el.className = "mc" + (m.available ? "" : " off");
+    el.style.setProperty("--c", m.color);
+    el.dataset.id = m.id; el.dataset.provider = m.provider;
+    el.innerHTML =
+      `<input type="checkbox" value="${m.id}" ${m.available?"":"disabled"} onchange="syncMC(this)">` +
+      `<span class="dot"></span>` +
+      `<span class="lbl">${m.name}</span>` +
+      `<span class="prov">${PROV[m.provider]||m.provider}</span>`;
+    g.appendChild(el);
+  });
+}
+
+function syncMC(cb){
+  const el = cb.closest("label");
+  el.classList.toggle("on", cb.checked);
+  // Clear group highlight since manual selection was made
+  document.querySelectorAll(".sel-btn").forEach(b=>b.className="sel-btn");
+}
+
+/* ── Presets ── */
+async function loadPresets(){
+  const tests = await api("/api/test_sets");
+  const sel = document.getElementById("sel-preset");
+  tests.forEach(t=>{
+    const o = document.createElement("option");
+    o.value = JSON.stringify(t);
+    const diff = {easy:"🟢",medium:"🟡",hard:"🔴"}[t.difficulty]||"";
+    o.textContent = `${diff} #${t.id}  ${t.start} → ${t.target}`;
+    sel.appendChild(o);
+  });
+}
+
+function applyPreset(){
+  const v = document.getElementById("sel-preset").value;
+  if(!v) return;
+  const t = JSON.parse(v);
+  document.getElementById("inp-start").value  = t.start;
+  document.getElementById("inp-target").value = t.target;
+}
+
+/* ── Start race ── */
+async function startRace(){
+  const start  = document.getElementById("inp-start").value.trim();
+  const target = document.getElementById("inp-target").value.trim();
+  const mids   = [...document.querySelectorAll(".mc input:checked")].map(c=>c.value);
+  if(!start||!target){ alert("Enter start and target articles."); return; }
+  if(!mids.length)   { alert("Select at least one model."); return; }
+
+  document.getElementById("btn-start").disabled = true;
+  document.getElementById("btn-cancel").style.display = "";
+  document.getElementById("race-info").textContent = "Starting…";
+
+  const {run_id, error} = await api("/api/run",{method:"POST",
+    body:JSON.stringify({start,target,models:mids})});
+  if(error){ alert(error); resetUI(); return; }
+
+  currentRunId = run_id;
+  document.getElementById("ra-start").textContent  = start;
+  document.getElementById("ra-target").textContent = target;
+  document.getElementById("race-area").style.display = "";
+  buildLanes(mids, start);
+  pollTimer = setInterval(poll, 1500);
+}
+
+/* ── Lanes ── */
+function lid(mid){ return "L"+mid.replace(/[\/.\-]/g,"_"); }
+
+function buildLanes(mids, start){
+  const c = document.getElementById("lanes"); c.innerHTML="";
+  mids.forEach(mid=>{
+    const m = models.find(x=>x.id===mid)||{name:mid,color:"#8b949e"};
+    const id = lid(mid);
+    const d = document.createElement("div");
+    d.className="lane"; d.id=id; d.style.setProperty("--c",m.color);
+    d.innerHTML=
+      `<div class="lane-hd">
+        <span class="ldot"></span>
+        <span class="lname">${m.name}</span>
+        <span class="lstatus" id="st_${id}">Pending</span>
+        <span class="lscore"  id="sc_${id}">—</span>
+      </div>
+      <div class="lbar-wrap"><div class="lbar" id="bar_${id}" style="width:0%"></div></div>
+      <div class="lpage"   id="pg_${id}">📍 ${start}</div>
+      <div class="lreason" id="rs_${id}"></div>
+      <div class="lsteps"  id="sp_${id}">Step 0 / ${MAX_S}</div>
+      <div class="path-scroll" id="pt_${id}"></div>`;
+    c.appendChild(d);
+  });
+}
+
+async function poll(){
+  if(!currentRunId) return;
+  const data = await api("/api/status/"+currentRunId);
+  if(data.error) return;
+  let allDone=true;
+  for(const [mid,mr] of Object.entries(data.model_results)){
+    updateLane(mid,mr);
+    if(mr.status==="running"||mr.status==="pending") allDone=false;
+  }
+  const done  = Object.values(data.model_results).filter(r=>r.status!=="pending"&&r.status!=="running").length;
+  const total = Object.keys(data.model_results).length;
+  document.getElementById("race-info").textContent = `${done}/${total} finished`;
+  if(allDone){ clearInterval(pollTimer); finishRace(data); loadLB(); }
+}
+
+const ST_LABEL = {pending:"Pending",running:"Running…",success:"✓ Found!",failed:"✗ Failed",cancelled:"Cancelled"};
+
+function updateLane(mid,mr){
+  const id=lid(mid);
+  const lane=document.getElementById(id); if(!lane) return;
+  lane.className="lane "+(mr.status||"");
+  const st=document.getElementById("st_"+id);
+  if(st){ st.textContent=ST_LABEL[mr.status]||mr.status; st.className="lstatus "+(mr.status||""); }
+  const sc=document.getElementById("sc_"+id);
+  if(sc) sc.textContent=mr.status==="success"?mr.score:(mr.status==="failed"?"0":"—");
+  const bar=document.getElementById("bar_"+id);
+  if(bar) bar.style.width=Math.min(100,(mr.steps/MAX_S)*100)+"%";
+  const pg=document.getElementById("pg_"+id);
+  if(pg) pg.textContent="📍 "+(mr.current_page||"").replace(/_/g," ");
+  const rs=document.getElementById("rs_"+id);
+  if(rs&&mr.last_reason) rs.textContent="💬 "+mr.last_reason;
+  const sp=document.getElementById("sp_"+id);
+  if(sp){
+    let t=`Step ${mr.steps} / ${MAX_S}`;
+    if(mr.time) t+=` · ${mr.time}s`;
+    if(mr.error) t+=` · ⚠ ${mr.error}`;
+    sp.textContent=t;
+  }
+  const pt=document.getElementById("pt_"+id);
+  if(pt&&mr.path&&mr.path.length){
+    pt.innerHTML=mr.path.map((u,i)=>{
+      const name=decodeURIComponent((u.split("/wiki/")[1]||u)).replace(/_/g," ");
+      const icon=i===0?"🚀":mr.status==="success"&&i===mr.path.length-1?"🎯":"↳";
+      return `<span class="pi">${icon} ${name}</span><br>`;
+    }).join("");
+    pt.scrollTop=pt.scrollHeight;
+  }
+}
+
+function finishRace(data){
+  resetUI();
+  const winners=Object.entries(data.model_results)
+    .filter(([,r])=>r.status==="success")
+    .sort(([,a],[,b])=>b.score-a.score);
+  if(winners.length){
+    const wm=models.find(x=>x.id===winners[0][0]);
+    document.getElementById("race-info").textContent=
+      `🏆 Winner: ${wm?wm.name:winners[0][0]} · Score ${winners[0][1].score}`;
+  } else {
+    document.getElementById("race-info").textContent="No AI reached the target.";
+  }
+}
+
+async function cancelRace(){
+  if(currentRunId) await api("/api/cancel/"+currentRunId,{method:"POST"});
+  clearInterval(pollTimer); resetUI();
+}
+
+function resetUI(){
+  document.getElementById("btn-start").disabled=false;
+  document.getElementById("btn-cancel").style.display="none";
+}
+
+/* ── Leaderboard ── */
+async function loadLB(){
+  const data=await api("/api/leaderboard");
+  const el=document.getElementById("lb-body");
+  if(!data.length){el.innerHTML='<div class="empty">No results yet — run a race first!</div>';return;}
+  const tr=["🥇","🥈","🥉"];
+  el.innerHTML=`<table>
+    <thead><tr><th>Rank</th><th>Model</th><th>Avg Score</th><th>Avg Steps</th><th>Avg Time</th><th>Win Rate</th><th>Races</th></tr></thead>
+    <tbody>${data.map((d,i)=>`<tr>
+      <td class="rk ${i<3?'rk'+(i+1):''}">${tr[i]||i+1}</td>
+      <td><strong>${d.model_name}</strong></td>
+      <td class="sc" style="color:#58a6ff">${d.avg_score}</td>
+      <td>${d.avg_steps}</td><td>${d.avg_time}s</td>
+      <td>${d.win_rate}%<span class="wbar" style="width:${d.win_rate}px"></span></td>
+      <td style="color:#8b949e">${d.runs}</td>
+    </tr>`).join("")}</tbody></table>`;
+}
+
+async function clearResults(){
+  if(!confirm("Clear all race results?")) return;
+  await api("/api/clear_results",{method:"POST"}); loadLB();
+}
+
+/* ── Settings ── */
+function buildKeyGrid(){
+  const g=document.getElementById("key-grid"); g.innerHTML="";
+  KEYS.forEach(f=>{
+    const has=cfg.has_key&&cfg.has_key[f.k];
+    g.innerHTML+=`<div class="krow">
+      <label>${f.lbl}</label>
+      <input type="password" id="ki_${f.k}" placeholder="${has?"(already set — paste to update)":f.ph}">
+      <span class="kstat ${has?"ok":"no"}">${has?"✓ Set":"✗ Missing"}</span>
+    </div>`;
+  });
+}
+
+async function saveKeys(){
+  const payload={};
+  KEYS.forEach(f=>{
+    const v=document.getElementById("ki_"+f.k).value.trim();
+    if(v) payload[f.k]=v;
+  });
+  await api("/api/config",{method:"POST",body:JSON.stringify(payload)});
+  [models,cfg]=await Promise.all([api("/api/models"),api("/api/config")]);
+  buildModelGrid(); buildKeyGrid();
+  alert("Saved! Models with valid keys are now available.");
+}
+
+/* ── Tabs ── */
+function showTab(name){
+  document.querySelectorAll(".tab").forEach((t,i)=>{
+    t.classList.toggle("active",["race","leaderboard","settings"][i]===name);
+  });
+  document.querySelectorAll(".pane").forEach(p=>{
+    p.classList.toggle("active",p.id==="pane-"+name);
+  });
+  if(name==="leaderboard") loadLB();
+}
+
+init();
+</script>
+</body>
+</html>
