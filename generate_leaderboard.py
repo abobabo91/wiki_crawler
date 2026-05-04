@@ -32,6 +32,7 @@ RELEASE_DATES = {
     "anthropic/claude-opus-4-7":            "2026-02-15",
     "xai/grok-2-1212":                      "2024-12-12",
     "xai/grok-3":                           "2025-02-17",
+    "xai/grok-3-mini":                      "2025-02-17",
 }
 
 TIERS = {
@@ -46,6 +47,7 @@ TIERS = {
     "gemini/gemini-3.1-flash-lite-preview": "Lite", "gemini/gemini-3.1-pro-preview": "Pro",
     "anthropic/claude-haiku-4-5-20251001": "Haiku", "anthropic/claude-sonnet-4-6": "Sonnet",
     "anthropic/claude-opus-4-7": "Opus", "xai/grok-2-1212": "Mini", "xai/grok-3": "Flagship",
+    "xai/grok-3-mini": "Mini",
 }
 
 

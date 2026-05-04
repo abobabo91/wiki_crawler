@@ -1,15 +1,20 @@
 import requests
 from bs4 import BeautifulSoup
 import time
+import os
 from openai import OpenAI
-
-# OpenAI API setup
-openai_api_key = "your_api_key"  # Replace with your actual key
-client = OpenAI(api_key=openai_api_key)
 
 # Wikipedia URLs
 WIKI_MAIN_PAGE = "https://en.wikipedia.org/wiki/Main_Page"
 WIKI_BASE_URL = "https://en.wikipedia.org"
+
+
+def get_openai_client():
+    """Build an OpenAI client from the environment."""
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("Set OPENAI_API_KEY before running ai_bot.py")
+    return OpenAI(api_key=api_key)
 
 
 
@@ -45,7 +50,7 @@ def ask_gpt_to_choose_link(page, links, current_page, page_history, reason_histo
                   "Output you answer in this format: \"THE_LINK_YOU_CHOSE;THE_REASON_YOU_CHOSE\". Output nothing else, but this two things, seperated by \";\"."
                   )
     
-    client = OpenAI(api_key=openai.api_key)
+    client = get_openai_client()
     
     response = client.chat.completions.create(
         model='gpt-4o', 
@@ -75,7 +80,7 @@ def search_for_target_page(page, links, current_page, page_history, reason_histo
                   "If you found the page we look for, output \"0;THE_REASON_YOU_THINK_IT_IS_THE_TARGET_PAGE."
                   )
     
-    client = OpenAI(api_key=openai.api_key)
+    client = get_openai_client()
     
     response = client.chat.completions.create(
         model='gpt-4o', 
