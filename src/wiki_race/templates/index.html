@@ -31,8 +31,6 @@ input:focus,select:focus{border-color:#58a6ff}
 .sel-btn.on-openai{background:#0d2a1f;border-color:#10c87f;color:#10c87f}
 .sel-btn.on-gemini{background:#0d1a3a;border-color:#4285f4;color:#4285f4}
 .sel-btn.on-anthropic{background:#3a1a0d;border-color:#e8937a;color:#e8937a}
-.sel-btn.on-mistral{background:#3a2200;border-color:#ff9a3c;color:#ff9a3c}
-.sel-btn.on-groq{background:#1a0d3a;border-color:#8b5cf6;color:#8b5cf6}
 
 /* Model grid */
 .model-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:6px}
@@ -173,7 +171,7 @@ input[type=password]{font-family:monospace;letter-spacing:.08em}
 <div id="pane-settings" class="pane">
   <div class="card">
     <h3>🔑 API Keys</h3>
-    <p style="font-size:.81rem;color:#8b949e;margin-bottom:14px">Stored locally in config.json. Only providers with a key appear as available.</p>
+    <p style="font-size:.81rem;color:#8b949e;margin-bottom:14px">Stored locally in data/config.json. Only providers with a key appear as available.</p>
     <div id="key-grid"></div>
     <div class="mt"><button class="btn btn-green" onclick="saveKeys()">💾 Save Keys</button></div>
   </div>
@@ -183,13 +181,12 @@ input[type=password]{font-family:monospace;letter-spacing:.08em}
 const MAX_S = 20;
 let models=[], cfg={}, currentRunId=null, pollTimer=null;
 
-const PROV = {openai:"OpenAI", gemini:"Google", anthropic:"Anthropic", mistral:"Mistral", groq:"Groq"};
+const PROV = {openai:"OpenAI", gemini:"Google", anthropic:"Anthropic", xai:"xAI"};
 const KEYS = [
   {k:"openai_key",    lbl:"OpenAI",        ph:"sk-proj-..."},
   {k:"gemini_key",    lbl:"Google Gemini", ph:"AIzaSy..."},
   {k:"anthropic_key", lbl:"Anthropic",     ph:"sk-ant-..."},
-  {k:"mistral_key",   lbl:"Mistral",       ph:"..."},
-  {k:"groq_key",      lbl:"Groq",          ph:"gsk_..."},
+  {k:"xai_key",       lbl:"xAI",           ph:"xai-..."},
 ];
 
 const GROUPS = [
@@ -197,8 +194,7 @@ const GROUPS = [
   {lbl:"OpenAI",    cls:"on-openai", fn: m=>m.provider==="openai"    && m.available},
   {lbl:"Gemini",    cls:"on-gemini", fn: m=>m.provider==="gemini"    && m.available},
   {lbl:"Anthropic", cls:"on-anthropic",fn:m=>m.provider==="anthropic"&& m.available},
-  {lbl:"Mistral",   cls:"on-mistral",fn: m=>m.provider==="mistral"   && m.available},
-  {lbl:"Groq",      cls:"on-groq",  fn:  m=>m.provider==="groq"      && m.available},
+  {lbl:"xAI",       cls:"on",        fn: m=>m.provider==="xai"       && m.available},
   {lbl:"Clear all", cls:"",          fn: ()=>false},
 ];
 

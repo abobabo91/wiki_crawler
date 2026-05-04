@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>WikiRace AI Benchmark</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+:root {
+  --bg:       #07070f;
+  --bg2:      #0d0d1e;
+  --card:     #111127;
+  --border:   rgba(120,130,255,0.13);
+  --text:     #e2e8f0;
+  --muted:    #64748b;
+  --openai:   #10b981;
+  --gemini:   #60a5fa;
+  --anthropic:#fb923c;
+  --xai:      #a78bfa;
+  --gold:     #fbbf24;
+  --easy:     #22c55e;
+  --medium:   #f59e0b;
+  --hard:     #ef4444;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;line-height:1.5;min-height:100vh}
+
+/* HEADER */
+.hero{background:linear-gradient(135deg,#0d0d2e 0%,#090920 50%,#0a0a1e 100%);border-bottom:1px solid var(--border);padding:40px 24px 32px;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 40% at 50% 0%,rgba(96,165,250,0.07) 0%,transparent 70%);pointer-events:none}
+.hero-title{font-size:clamp(22px,4vw,38px);font-weight:800;letter-spacing:-0.5px;background:linear-gradient(135deg,#fff 0%,#94a3b8 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-sub{font-size:14px;color:var(--muted);margin:8px 0 20px}
+.stats-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:8px}
+.stat-chip{background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px}
+.stat-chip span{color:var(--muted);font-weight:400}
+.generated{font-size:11px;color:var(--muted);margin-top:8px}
+
+/* TABS */
+.tab-nav{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.tab-btn{flex:1;max-width:220px;padding:14px 20px;background:none;border:none;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
+.tab-btn:hover{color:var(--text);background:rgba(255,255,255,0.03)}
+.tab-btn.active{color:var(--text);border-bottom-color:#60a5fa;background:rgba(96,165,250,0.06)}
+.tab-content{display:none;padding:24px}
+.tab-content.active{display:block}
+
+/* CONTROLS */
+.controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:20px}
+.chip-group{display:flex;gap:6px;flex-wrap:wrap}
+.filter-chip{padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:rgba(255,255,255,0.04);color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
+.filter-chip:hover{border-color:rgba(255,255,255,0.25);color:var(--text)}
+.filter-chip.active{color:#fff;border-color:transparent}
+.filter-chip[data-f="all"].active{background:rgba(255,255,255,0.15)}
+.filter-chip[data-f="openai"].active{background:var(--openai);color:#000}
+.filter-chip[data-f="gemini"].active{background:var(--gemini);color:#000}
+.filter-chip[data-f="anthropic"].active{background:var(--anthropic);color:#000}
+.filter-chip[data-f="xai"].active{background:var(--xai);color:#000}
+.th-sort{cursor:pointer;user-select:none}
+.th-sort:hover{color:#93c5fd}
+.th-sort-active{color:#60a5fa}
+.sort-arrow{font-size:10px;margin-left:2px;opacity:0.8}
+
+/* INFO ICONS */
+.info-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);font-size:9px;font-weight:800;cursor:help;color:var(--muted);margin-left:4px;vertical-align:middle;transition:all .15s;font-style:normal;line-height:1;flex-shrink:0}
+.info-icon:hover{background:rgba(96,165,250,.2);border-color:#60a5fa;color:#60a5fa}
+
+/* TABLE */
+.table-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;background:var(--card)}
+thead tr{background:rgba(255,255,255,0.04);border-bottom:1px solid var(--border)}
+thead th{padding:12px 16px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);white-space:nowrap}
+thead th.r{text-align:right}
+tbody tr.model-row{cursor:pointer;transition:background .15s;border-bottom:1px solid var(--border)}
+tbody tr.model-row:hover{background:rgba(255,255,255,0.03)}
+tbody tr.model-row.expanded{background:rgba(96,165,250,0.04)}
+tbody tr.detail-row{display:none;border-bottom:1px solid var(--border)}
+tbody tr.detail-row.open{display:table-row}
+td{padding:12px 16px;vertical-align:middle}
+td.r{text-align:right}
+
+.rank-cell{font-weight:800;font-size:15px;width:52px}
+.medal{font-size:20px}
+.rank-num{color:var(--muted)}
+.model-name{font-weight:700;font-size:14px}
+.model-meta{display:flex;gap:6px;margin-top:3px;flex-wrap:wrap}
+.tier-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);color:var(--muted)}
+.provider-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:10px}
+.pv-openai{background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3)}
+.pv-gemini{background:rgba(96,165,250,.15);color:#60a5fa;border:1px solid rgba(96,165,250,.3)}
+.pv-anthropic{background:rgba(251,146,60,.15);color:#fb923c;border:1px solid rgba(251,146,60,.3)}
+.pv-xai{background:rgba(167,139,250,.15);color:#a78bfa;border:1px solid rgba(167,139,250,.3)}
+
+.win-bar-wrap{display:flex;align-items:center;gap:10px;min-width:160px}
+.win-bar-bg{flex:1;height:8px;background:rgba(255,255,255,0.07);border-radius:4px;overflow:hidden}
+.win-bar-fill{height:100%;border-radius:4px;transition:width 1s ease}
+.win-pct{font-weight:800;font-size:14px;min-width:42px;text-align:right}
+.win-frac{font-size:11px;color:var(--muted);white-space:nowrap}
+.score-val{font-weight:700;font-size:14px}
+.steps-val{font-weight:600;font-size:14px}
+
+.diff-mini{display:flex;gap:4px;align-items:center;flex-direction:column}
+.diff-row{display:flex;gap:3px;align-items:center;font-size:10px;white-space:nowrap}
+.diff-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.diff-easy{background:var(--easy)}
+.diff-med{background:var(--medium)}
+.diff-hard{background:var(--hard)}
+
+.expand-btn{background:none;border:1px solid var(--border);color:var(--muted);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:12px;transition:all .2s;display:flex;align-items:center;justify-content:center}
+.expand-btn:hover{border-color:#60a5fa;color:#60a5fa}
+
+/* EXPANDED DETAIL */
+.detail-inner{padding:16px 20px 20px;background:rgba(0,0,10,0.3)}
+.detail-header{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:14px}
+.test-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.test-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;transition:border-color .15s}
+.test-card:hover{border-color:rgba(255,255,255,0.2)}
+.test-card.pass{border-left:3px solid #22c55e}
+.test-card.fail{border-left:3px solid #ef4444}
+.tc-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.tc-icon{font-size:14px}
+.tc-diff{font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;text-transform:uppercase}
+.tc-diff.easy{background:rgba(34,197,94,.15);color:#22c55e}
+.tc-diff.medium{background:rgba(245,158,11,.15);color:#f59e0b}
+.tc-diff.hard{background:rgba(239,68,68,.15);color:#ef4444}
+.tc-route{font-size:12px;margin-bottom:4px}
+.tc-route strong{color:#fff}
+.tc-route span{color:var(--muted)}
+.tc-stats{display:flex;gap:10px;font-size:11px;color:var(--muted)}
+.tc-stats b{color:var(--text)}
+
+/* HIGHLIGHTS */
+.highlights{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:24px}
+.hl-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;position:relative;overflow:hidden}
+.hl-card.gold{border-color:rgba(251,191,36,.35);box-shadow:0 0 30px rgba(251,191,36,.07)}
+.hl-card.surprise{border-color:rgba(96,165,250,.3);box-shadow:0 0 20px rgba(96,165,250,.06)}
+.hl-card.efficient{border-color:rgba(167,139,250,.3);box-shadow:0 0 20px rgba(167,139,250,.06)}
+.hl-card.warn{border-color:rgba(239,68,68,.25);box-shadow:0 0 20px rgba(239,68,68,.05)}
+.hl-icon{font-size:24px;margin-bottom:8px}
+.hl-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px}
+.hl-name{font-size:16px;font-weight:800;margin-bottom:2px}
+.hl-sub{font-size:11px;color:var(--muted)}
+
+/* CHARTS */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:900px){.charts-grid{grid-template-columns:1fr}}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px}
+.chart-title{font-size:14px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.chart-sub{font-size:11px;color:var(--muted);margin-bottom:12px}
+.chart-wrap{position:relative;height:340px}
+
+/* CHART CONTROLS */
+.chart-controls{display:flex;gap:16px;flex-wrap:wrap;align-items:center;padding:12px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:16px}
+.ctrl-group{display:flex;align-items:center;gap:8px}
+.ctrl-group label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap;display:flex;align-items:center;gap:4px}
+.ctrl-select{background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;transition:border-color .15s;outline:none;-webkit-appearance:none;padding-right:24px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2364748b'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center}
+.ctrl-select:hover,.ctrl-select:focus{border-color:#60a5fa}
+.ctrl-select option{background:#1a1a2e}
+.chart-controls-hint{font-size:11px;color:var(--muted);margin-left:auto}
+
+/* MATRIX */
+.matrix-wrap{overflow-x:auto}
+.matrix-table{border-collapse:separate;border-spacing:3px;min-width:max-content}
+.mx-header{font-size:10px;color:var(--muted);text-align:center;padding:4px 2px;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis;cursor:default}
+.mx-model{font-size:11px;font-weight:600;padding:4px 10px 4px 4px;white-space:nowrap;text-align:right}
+.mx-cell{width:36px;height:36px;border-radius:5px;cursor:pointer;transition:transform .1s,box-shadow .1s;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:rgba(255,255,255,0.7);position:relative}
+.mx-cell:hover{transform:scale(1.2);box-shadow:0 4px 12px rgba(0,0,0,.4);z-index:10}
+.mx-cell.pass0{background:#064e3b}
+.mx-cell.pass1{background:#065f46}
+.mx-cell.pass2{background:#047857}
+.mx-cell.pass3{background:#059669}
+.mx-cell.pass4{background:#10b981}
+.mx-cell.fail{background:rgba(127,29,29,0.7)}
+.mx-cell.fail0{background:#1a0505}
+.diff-easy-hdr{color:#22c55e}
+.diff-med-hdr{color:#f59e0b}
+.diff-hard-hdr{color:#ef4444}
+.mx-legend{display:flex;gap:16px;align-items:center;margin-bottom:16px;flex-wrap:wrap;font-size:11px;color:var(--muted)}
+.mx-legend-swatch{display:flex;gap:6px;align-items:center}
+.swatch{width:16px;height:16px;border-radius:3px}
+
+/* RICH TOOLTIP */
+#tooltip{
+  position:fixed;z-index:9999;pointer-events:none;
+  background:rgba(10,10,28,.97);border:1px solid rgba(96,165,250,0.2);
+  border-radius:10px;padding:10px 14px;font-size:12px;line-height:1.6;
+  max-width:300px;box-shadow:0 8px 40px rgba(0,0,0,.6);
+  opacity:0;transition:opacity .15s;color:var(--text);
+}
+#tooltip b{color:#60a5fa}
+
+/* RUN SIDEBAR */
+#sidebar-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.45);opacity:0;pointer-events:none;transition:opacity .25s}
+#sidebar-overlay.open{opacity:1;pointer-events:auto}
+#run-sidebar{position:fixed;top:0;right:-420px;width:390px;height:100vh;background:var(--card);border-left:1px solid rgba(96,165,250,0.18);z-index:10000;overflow-y:auto;padding:28px 24px;transition:right .25s cubic-bezier(.4,0,.2,1);box-shadow:-12px 0 50px rgba(0,0,0,0.6)}
+#run-sidebar.open{right:0}
+.sb-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px 8px;border-radius:4px;line-height:1}
+.sb-close:hover{color:var(--text);background:rgba(255,255,255,0.06)}
+.sb-model{font-size:16px;font-weight:700;margin-bottom:2px;padding-right:32px}
+.sb-route{font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.5}
+.sb-route b{color:var(--text)}
+.sb-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px}
+.sb-stat{background:var(--bg2);border-radius:8px;padding:10px 8px;text-align:center;border:1px solid var(--border)}
+.sb-stat-val{font-size:20px;font-weight:700;color:#60a5fa;line-height:1.2}
+.sb-stat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.sb-section{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
+.sb-step{display:flex;align-items:flex-start;gap:10px;padding:6px 0;border-bottom:1px solid rgba(120,130,255,0.07)}
+.sb-step:last-child{border-bottom:none}
+.sb-step-num{color:var(--muted);font-size:10px;min-width:20px;padding-top:2px;text-align:right;flex-shrink:0}
+.sb-step-arrow{color:var(--muted);font-size:10px;padding-top:2px;flex-shrink:0}
+.sb-step-right{display:flex;flex-direction:column;gap:2px;min-width:0}
+.sb-step-page{font-size:12px;color:var(--text);word-break:break-word;line-height:1.4}
+.sb-step-page.sb-start{color:#60a5fa;font-weight:600}
+.sb-step-page.sb-end{color:#10b981;font-weight:600}
+.sb-reason{font-size:11px;color:var(--muted);font-style:italic;line-height:1.4}
+.sb-nopath{font-size:12px;color:var(--muted);font-style:italic;padding:8px 0}
+</style>
+</head>
+<body>
+<div id="tooltip"></div>
+<div id="sidebar-overlay" onclick="closeRunSidebar()"></div>
+<div id="run-sidebar">
+  <button class="sb-close" onclick="closeRunSidebar()">&#10005;</button>
+  <div id="sb-content"></div>
+</div>
+
+<header class="hero">
+  <div class="hero-title">WikiRace AI Benchmark</div>
+  <div class="hero-sub">Which AI can navigate Wikipedia to any target in the fewest clicks?</div>
+  <div class="stats-row">
+    <div class="stat-chip">21 <span>models tested</span></div>
+    <div class="stat-chip">420 <span>total runs</span></div>
+    <div class="stat-chip">20 <span>test scenarios</span></div>
+    <div class="stat-chip" style="color:var(--gold)">GPT-4o <span>20/20 wins</span></div>
+  </div>
+  <div class="generated">Generated 2026-05-05 00:52</div>
+</header>
+
+<nav class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('leaderboard',this)">&#127942; Leaderboard</button>
+  <button class="tab-btn" onclick="switchTab('charts',this)">&#128200; Timeline &amp; Charts</button>
+  <button class="tab-btn" onclick="switchTab('matrix',this)">&#129514; Test Matrix</button>
+</nav>
+
+<!-- LEADERBOARD TAB -->
+<div id="tab-leaderboard" class="tab-content active">
+  <div id="highlights" class="highlights"></div>
+  <div class="controls">
+    <div class="chip-group">
+      <button class="filter-chip active" data-f="all"       onclick="setFilter('all',this)">All</button>
+      <button class="filter-chip"        data-f="openai"    onclick="setFilter('openai',this)">OpenAI</button>
+      <button class="filter-chip"        data-f="gemini"    onclick="setFilter('gemini',this)">Gemini</button>
+      <button class="filter-chip"        data-f="anthropic" onclick="setFilter('anthropic',this)">Anthropic</button>
+      <button class="filter-chip"        data-f="xai"       onclick="setFilter('xai',this)">xAI</button>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:52px">#</th>
+          <th>Model</th>
+          <th>Provider</th>
+          <th class="th-sort th-sort-active" data-sort="win_rate" onclick="setSort('win_rate')">Win Rate <span class="sort-arrow">↓</span><i class="info-icon" data-metric="win_rate">?</i></th>
+          <th class="th-sort r" data-sort="avg_score" onclick="setSort('avg_score')">Avg Score <span class="sort-arrow"></span><i class="info-icon" data-metric="avg_score">?</i></th>
+          <th class="th-sort r" data-sort="avg_steps" onclick="setSort('avg_steps')">Avg Steps <span class="sort-arrow"></span><i class="info-icon" data-metric="avg_steps">?</i></th>
+          <th class="th-sort r" data-sort="avg_time" onclick="setSort('avg_time')">Avg Time <span class="sort-arrow"></span><i class="info-icon" data-metric="avg_time">?</i></th>
+          <th>By Difficulty <i class="info-icon" data-metric="difficulty">?</i></th>
+          <th style="width:40px"></th>
+        </tr>
+      </thead>
+      <tbody id="lb-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- CHARTS TAB -->
+<div id="tab-charts" class="tab-content">
+  <div class="charts-grid">
+
+    <!-- Main explorer chart (full width) -->
+    <div class="chart-card" style="grid-column:1/-1">
+      <div class="chart-title">
+        Model Performance Explorer
+        <i class="info-icon" data-metric="explorer">?</i>
+      </div>
+      <div class="chart-sub">Each bubble is one model. Change axes and encoding below to explore different relationships.</div>
+      <div class="chart-controls">
+        <div class="ctrl-group">
+          <label>X Axis <i class="info-icon" data-metric="xaxis">?</i></label>
+          <select id="tl-x" class="ctrl-select" onchange="rebuildTimeline()">
+            <option value="release_date" selected>Release Date</option>
+            <option value="win_rate">Win Rate</option>
+            <option value="avg_score">Avg Score</option>
+            <option value="avg_steps">Avg Steps</option>
+            <option value="avg_time">Avg Time</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label>Y Axis <i class="info-icon" data-metric="yaxis">?</i></label>
+          <select id="tl-y" class="ctrl-select" onchange="rebuildTimeline()">
+            <option value="win_rate" selected>Win Rate</option>
+            <option value="avg_score">Avg Score</option>
+            <option value="avg_steps">Avg Steps</option>
+            <option value="avg_time">Avg Time</option>
+            <option value="release_date">Release Date</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label>Bubble Size <i class="info-icon" data-metric="bubble_size">?</i></label>
+          <select id="tl-r" class="ctrl-select" onchange="rebuildTimeline()">
+            <option value="avg_score" selected>Avg Score</option>
+            <option value="win_rate">Win Rate</option>
+            <option value="avg_steps">Avg Steps (inverted)</option>
+            <option value="fixed">Fixed (equal)</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label>Color By <i class="info-icon" data-metric="color_by">?</i></label>
+          <select id="tl-c" class="ctrl-select" onchange="rebuildTimeline()">
+            <option value="provider" selected>Provider</option>
+            <option value="win_rate">Win Rate</option>
+            <option value="tier">Model Tier</option>
+          </select>
+        </div>
+        <span class="chart-controls-hint">Hover bubbles for details</span>
+      </div>
+      <div class="chart-wrap" style="height:420px"><canvas id="timeline-chart"></canvas></div>
+    </div>
+
+    <!-- Win rate bar -->
+    <div class="chart-card">
+      <div class="chart-title">
+        Win Rate by Model
+        <i class="info-icon" data-metric="win_rate">?</i>
+      </div>
+      <div class="chart-sub">All models sorted by performance, colored by provider</div>
+      <div class="chart-wrap"><canvas id="winrate-chart"></canvas></div>
+    </div>
+
+    <!-- Difficulty breakdown -->
+    <div class="chart-card">
+      <div class="chart-title">
+        Win Rate by Difficulty
+        <i class="info-icon" data-metric="difficulty">?</i>
+      </div>
+      <div class="chart-sub">Easy / Medium / Hard split for top 12 models</div>
+      <div class="chart-wrap"><canvas id="diff-chart"></canvas></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MATRIX TAB -->
+<div id="tab-matrix" class="tab-content">
+  <p style="color:var(--muted);font-size:12px;margin-bottom:12px">
+    Each cell = one model &times; one test. Shade of green = success (brighter = fewer steps). Red = failed. Hover any cell for details.
+  </p>
+  <div class="mx-legend">
+    <span>Steps to win:</span>
+    <div class="mx-legend-swatch"><div class="swatch" style="background:#10b981"></div>1&ndash;2</div>
+    <div class="mx-legend-swatch"><div class="swatch" style="background:#059669"></div>3&ndash;4</div>
+    <div class="mx-legend-swatch"><div class="swatch" style="background:#047857"></div>5&ndash;7</div>
+    <div class="mx-legend-swatch"><div class="swatch" style="background:#065f46"></div>8&ndash;11</div>
+    <div class="mx-legend-swatch"><div class="swatch" style="background:#064e3b"></div>12+</div>
+    <div class="mx-legend-swatch"><div class="swatch" style="background:rgba(127,29,29,0.7)"></div>Failed</div>
+    <span style="margin-left:8px">Difficulty:</span>
+    <span class="diff-easy-hdr">&#9632; Easy</span>
+    <span class="diff-med-hdr">&#9632; Medium</span>
+    <span class="diff-hard-hdr">&#9632; Hard</span>
+  </div>
+  <div class="matrix-wrap"><div id="matrix-inner"></div></div>
+</div>
+
+<script>
+const DATA = {"models": [{"model_id": "openai/gpt-4o", "name": "GPT-4o", "provider": "openai", "tier": "Flagship", "release_date": "2024-05-13", "wins": 20, "n": 20, "win_rate": 100.0, "avg_score": 677.5, "avg_steps": 5.8, "avg_time": 17.7, "by_diff": {"easy": {"w": 4, "n": 4, "rate": 100}, "medium": {"w": 9, "n": 9, "rate": 100}, "hard": {"w": 7, "n": 7, "rate": 100}}, "tests": {"1": {"success": true, "steps": 17, "score": 28, "time": 61.4, "start": "Pizza", "target": "Albert Einstein", "diff": "medium", "path": [], "reasons": []}, "2": {"success": true, "steps": 2, "score": 892, "time": 4.1, "start": "Volleyball", "target": "French Revolution", "diff": "hard", "path": [], "reasons": []}, "3": {"success": true, "steps": 11, "score": 371, "time": 39.7, "start": "Shark", "target": "World War II", "diff": "easy", "path": [], "reasons": []}, "4": {"success": true, "steps": 5, "score": 722, "time": 14.2, "start": "Coffee", "target": "Isaac Newton", "diff": "medium", "path": [], "reasons": []}, "5": {"success": true, "steps": 3, "score": 832, "time": 9.3, "start": "Bicycle", "target": "Ancient Rome", "diff": "hard", "path": [], "reasons": []}, "6": {"success": true, "steps": 10, "score": 433, "time": 33.6, "start": "Chocolate", "target": "Charles Darwin", "diff": "medium", "path": [], "reasons": []}, "7": {"success": true, "steps": 10, "score": 439, "time": 30.6, "start": "Soccer", "target": "Quantum mechanics", "diff": "hard", "path": [], "reasons": []}, "8": {"success": true, "steps": 4, "score": 779, "time": 10.7, "start": "Penguin", "target": "United States", "diff": "easy", "path": [], "reasons": []}, "9": {"success": true, "steps": 1, "score": 944, "time": 3.2, "start": "Guitar", "target": "Renaissance", "diff": "medium", "path": [], "reasons": []}, "10": {"success": true, "steps": 3, "score": 836, "time": 7.2, "start": "Sushi", "target": "Genghis Khan", "diff": "hard", "path": [], "reasons": []}, "11": {"success": true, "steps": 5, "score": 723, "time": 13.8, "start": "Elephant", "target": "Democracy", "diff": "medium", "path": [], "reasons": []}, "12": {"success": true, "steps": 7, "score": 607, "time": 21.9, "start": "Basketball", "target": "Space exploration", "diff": "medium", "path": [], "reasons": []}, "13": {"success": true, "steps": 2, "score": 892, "time": 4.2, "start": "Bread", "target": "Roman Empire", "diff": "easy", "path": [], "reasons": []}, "14": {"success": true, "steps": 7, "score": 612, "time": 19.1, "start": "Tornado", "target": "Marie Curie", "diff": "hard", "path": [], "reasons": []}, "15": {"success": true, "steps": 4, "score": 777, "time": 11.8, "start": "Chess", "target": "Cold War", "diff": "medium", "path": [], "reasons": []}, "16": {"success": true, "steps": 7, "score": 609, "time": 20.8, "start": "Honey", "target": "Karl Marx", "diff": "hard", "path": [], "reasons": []}, "17": {"success": true, "steps": 5, "score": 719, "time": 15.7, "start": "Dolphin", "target": "Industrial Revolution", "diff": "medium", "path": [], "reasons": []}, "18": {"success": true, "steps": 4, "score": 778, "time": 11.0, "start": "Tea", "target": "Napoleon Bonaparte", "diff": "medium", "path": [], "reasons": []}, "19": {"success": true, "steps": 7, "score": 608, "time": 21.2, "start": "Mountain", "target": "DNA", "diff": "hard", "path": [], "reasons": []}, "20": {"success": true, "steps": 1, "score": 949, "time": 0.8, "start": "Cricket (sport)", "target": "British Empire", "diff": "easy", "path": [], "reasons": []}}, "rank": 1}, {"model_id": "openai/gpt-4.1", "name": "GPT-4.1", "provider": "openai", "tier": "Flagship", "release_date": "2025-04-14", "wins": 19, "n": 20, "win_rate": 95.0, "avg_score": 719.0, "avg_steps": 5.2, "avg_time": 15.9, "by_diff": {"easy": {"w": 4, "n": 4, "rate": 100}, "medium": {"w": 8, "n": 9, "rate": 89}, "hard": {"w": 7, "n": 7, "rate": 100}}, "tests": {"1": {"success": false, "steps": 20, "score": 0, "time": 79.4, "start": "Pizza", "target": "Albert Einstein", "diff": "medium", "path": [], "reasons": []}, "2": {"success": true, "steps": 2, "score": 892, "time": 4.1, "start": "Volleyball", "target": "French Revolution", "diff": "hard", "path": [], "reasons": []}, "3": {"success": true, "steps": 4, "score": 778, "time": 11.0, "start": "Shark", "target": "World War II", "diff": "easy", "path": [], "reasons": []}, "4": {"success": true, "steps": 5, "score": 721, "time": 14.8, "start": "Coffee", "target": "Isaac Newton", "diff": "medium", "path": [], "reasons": []}, "5": {"success": true, "steps": 3, "score": 836, "time": 7.1, "start": "Bicycle", "target": "Ancient Rome", "diff": "hard", "path": [], "reasons": []}, "6": {"success": true, "steps": 5, "score": 722, "time": 14.4, "start": "Chocolate", "target": "Charles Darwin", "diff": "medium", "path": [], "reasons": []}, "7": {"success": true, "steps": 9, "score": 486, "time": 32.0, "start": "Soccer", "target": "Quantum mechanics", "diff": "hard", "path": [], "reasons": []}, "8": {"success": true, "steps": 3, "score": 835, "time": 7.9, "start": "Penguin", "target": "United States", "diff": "easy", "path": [], "reasons": []}, "9": {"success": true, "steps": 1, "score": 944, "time": 3.1, "start": "Guitar", "target": "Renaissance", "diff": "medium", "path": [], "reasons": []}, "10": {"success": true, "steps": 3, "score": 835, "time": 7.5, "start": "Sushi", "target": "Genghis Khan", "diff": "hard", "path": [], "reasons": []}, "11": {"success": true, "steps": 5, "score": 724, "time": 13.2, "start": "Elephant", "target": "Democracy", "diff": "medium", "path": [], "reasons": []}, "12": {"success": true, "steps": 7, "score": 609, "time": 20.5, "start": "Basketball", "target": "Space exploration", "diff": "medium", "path": [], "reasons": []}, "13": {"success": true, "steps": 2, "score": 892, "time": 4.3, "start": "Bread", "target": "Roman Empire", "diff": "easy", "path": [], "reasons": []}, "14": {"success": true, "steps": 9, "score": 495, "time": 27.7, "start": "Tornado", "target": "Marie Curie", "diff": "hard", "path": [], "reasons": []}, "15": {"success": true, "steps": 3, "score": 834, "time": 8.2, "start": "Chess", "target": "Cold War", "diff": "medium", "path": [], "reasons": []}, "16": {"success": true, "steps": 5, "score": 720, "time": 15.4, "start": "Honey", "target": "Karl Marx", "diff": "hard", "path": [], "reasons": []}, "17": {"success": true, "steps": 7, "score": 607, "time": 21.5, "start": "Dolphin", "target": "Industrial Revolution", "diff": "medium", "path": [], "reasons": []}, "18": {"success": true, "steps": 5, "score": 724, "time": 13.2, "start": "Tea", "target": "Napoleon Bonaparte", "diff": "medium", "path": [], "reasons": []}, "19": {"success": true, "steps": 4, "score": 778, "time": 11.2, "start": "Mountain", "target": "DNA", "diff": "hard", "path": [], "reasons": []}, "20": {"success": true, "steps": 1, "score": 949, "time": 0.9, "start": "Cricket (sport)", "target": "British Empire", "diff": "easy", "path": [], "reasons": []}}, "rank": 2}, {"model_id": "anthropic/claude-sonnet-4-6", "name": "Claude Sonnet 4.6", "provider": "anthropic", "tier": "Sonnet", "release_date": "2025-12-01", "wins": 19, "n": 20, "win_rate": 95.0, "avg_score": 671.0, "avg_steps": 5.7, "avg_time": 22.1, "by_diff": {"easy": {"w": 4, "n": 4, "rate": 100}, "medium": {"w": 8, "n": 9, "rate": 89}, "hard": {"w": 7, "n": 7, "rate": 100}}, "tests": {"1": {"success": true, "steps": 5, "score": 709, "time": 20.6, "start": "Pizza", "target": "Albert Einstein", "diff": "medium", "path": [], "reasons": []}, "2": {"success": true, "steps": 2, "score": 888, "time": 6.3, "start": "Volleyball", "target": "French Revolution", "diff": "hard", "path": [], "reasons": []}, "3": {"success": true, "steps": 11, "score": 323, "time": 63.7, "start": "Shark", "target": "World War II", "diff": "easy", "path": [], "reasons": []}, "4": {"success": true, "steps": 4, "score": 767, "time": 16.8, "start": "Coffee", "target": "Isaac Newton", "diff": "medium", "path": [], "reasons": []}, "5": {"success": true, "steps": 4, "score": 772, "time": 14.3, "start": "Bicycle", "target": "Ancient Rome", "diff": "hard", "path": [], "reasons": []}, "6": {"success": true, "steps": 4, "score": 766, "time": 17.1, "start": "Chocolate", "target": "Charles Darwin", "diff": "medium", "path": [], "reasons": []}, "7": {"success": true, "steps": 12, "score": 273, "time": 63.7, "start": "Soccer", "target": "Quantum mechanics", "diff": "hard", "path": [], "reasons": []}, "8": {"success": true, "steps": 3, "score": 824, "time": 13.0, "start": "Penguin", "target": "United States", "diff": "easy", "path": [], "reasons": []}, "9": {"success": true, "steps": 1, "score": 941, "time": 4.8, "start": "Guitar", "target": "Renaissance", "diff": "medium", "path": [], "reasons": []}, "10": {"success": true, "steps": 3, "score": 825, "time": 12.5, "start": "Sushi", "target": "Genghis Khan", "diff": "hard", "path": [], "reasons": []}, "11": {"success": true, "steps": 4, "score": 766, "time": 17.0, "start": "Elephant", "target": "Democracy", "diff": "medium", "path": [], "reasons": []}, "12": {"success": true, "steps": 9, "score": 466, "time": 42.2, "start": "Basketball", "target": "Space exploration", "diff": "medium", "path": [], "reasons": []}, "13": {"success": true, "steps": 2, "score": 888, "time": 6.2, "start": "Bread", "target": "Roman Empire", "diff": "easy", "path": [], "reasons": []}, "14": {"success": true, "steps": 7, "score": 576, "time": 37.2, "start": "Tornado", "target": "Marie Curie", "diff": "hard", "path": [], "reasons": []}, "15": {"success": true, "steps": 4, "score": 763, "time": 18.6, "start": "Chess", "target": "Cold War", "diff": "medium", "path": [], "reasons": []}, "16": {"success": true, "steps": 5, "score": 699, "time": 25.8, "start": "Honey", "target": "Karl Marx", "diff": "hard", "path": [], "reasons": []}, "17": {"success": true, "steps": 4, "score": 762, "time": 19.4, "start": "Dolphin", "target": "Industrial Revolution", "diff": "medium", "path": [], "reasons": []}, "18": {"success": false, "steps": 5, "score": 0, "time": 0, "start": "Tea", "target": "Napoleon Bonaparte", "diff": "medium", "path": [], "reasons": []}, "19": {"success": true, "steps": 9, "score": 465, "time": 42.6, "start": "Mountain", "target": "DNA", "diff": "hard", "path": [], "reasons": []}, "20": {"success": true, "steps": 1, "score": 948, "time": 1.1, "start": "Cricket (sport)", "target": "British Empire", "diff": "easy", "path": [], "reasons": []}}, "rank": 3}, {"model_id": "openai/gpt-5.4", "name": "GPT-5.4", "provider": "openai", "tier": "Flagship", "release_date": "2026-04-01", "wins": 19, "n": 20, "win_rate": 95.0, "avg_score": 647.9, "avg_steps": 6.2, "avg_time": 22.5, "by_diff": {"easy": {"w": 4, "n": 4, "rate": 100}, "medium": {"w": 8, "n": 9, "rate": 89}, "hard": {"w": 7, "n": 7, "rate": 100}}, "tests": {"1": {"success": true, "steps": 8, "score": 521, "time": 39.7, "start": "Pizza", "target": "Albert Einstein", "diff": "medium", "path": [], "reasons": []}, "2": {"success": true, "steps": 2, "score": 891, "time": 4.8, "start": "Volleyball", "target": "French Revolution", "diff": "hard", "path": [], "reasons": []}, "3": {"success": true, "steps": 7, "score": 575, "time": 37.6, "start": "Shark", "target": "World War II", "diff": "easy", "path": [], "reasons": []}, "4": {"success": true, "steps": 10, "score": 421, "time": 39.9, "start": "Coffee", "target": "Isaac Newton", "diff": "medium", "path": [], "reasons": []}, "5": {"success": true, "steps": 3, "score": 829, "time": 10.8, "start": "Bicycle", "target": "Ancient Rome", "diff": "hard", "path": [], "reasons": []}, "6": {"success": true, "steps": 5, "score": 704, "time": 23.2, "start": "Chocolate", "target": "Charles Darwin", "diff": "medium", "path": [], "reasons": []}, "7": {"success": true, "steps": 9, "score": 460, "time": 45.1, "start": "Soccer", "target": "Quantum mechanics", "diff": "hard", "path": [], "reasons": []}, "8": {"success": true, "steps": 3, "score": 828, "time": 11.2, "start": "Penguin", "target": "United States", "diff": "easy", "path": [], "reasons": []}, "9": {"success": true, "steps": 1, "score": 942, "time": 4.0, "start": "Guitar", "target": "Renaissance", "diff": "medium", "path": [], "reasons": []}, "10": {"success": true, "steps": 6, "score": 633, "time": 33.9, "start": "Sushi", "target": "Genghis Khan", "diff": "hard", "path": [], "reasons": []}, "11": {"success": true, "steps": 4, "score": 774, "time": 13.0, "start": "Elephant", "target": "Democracy", "diff": "medium", "path": [], "reasons": []}, "12": {"success": true, "steps": 7, "score": 587, "time": 31.6, "start": "Basketball", "target": "Space exploration", "diff": "medium", "path": [], "reasons": []}, "13": {"success": true, "steps": 2, "score": 891, "time": 4.5, "start": "Bread", "target": "Roman Empire", "diff": "easy", "path": [], "reasons": []}, "14": {"success": true, "steps": 7, "score": 595, "time": 27.5, "start": "Tornado", "target": "Marie Curie", "diff": "hard", "path": [], "reasons": []}, "15": {"success": true, "steps": 11, "score": 352, "time": 49.0, "start": "Chess", "target": "Cold War", "diff": "medium", "path": [], "reasons": []}, "16": {"success": true, "steps": 3, "score": 829, "time": 10.8, "start": "Honey", "target": "Karl Marx", "diff": "hard", "path": [], "reasons": []}, "17": {"success": true, "steps": 10, "score": 405, "time": 47.5, "start": "Dolphin", "target": "Industrial Revolution", "diff": "medium", "path": [], "reasons": []}, "18": {"success": false, "steps": 12, "score": 0, "time": 0, "start": "Tea", "target": "Napoleon Bonaparte", "diff": "medium", "path": [], "reasons": []}, "19": {"success": true, "steps": 4, "score": 772, "time": 14.1, "start": "Mountain", "target": "DNA", "diff": "hard", "path": [], "reasons": []}, "20": {"success": true, "steps": 1, "score": 949, "time": 0.8, "start": "Cricket (sport)", "target": "British Empire", "diff": "easy", "path": [], "reasons": []}}, "rank": 4}, {"model_id": "gemini/gemini-3.1-pro-preview", "name": "Gemini 3.1 Pro", "provider": "gemini", "tier": "Pro", "release_date": "2026-03-10", "wins": 19, "n": 20, "win_rate": 95.0, "avg_score": 620.9, "avg_steps": 6.0, "avg_time": 46.9, "by_diff": {"easy": {"w": 4, "n": 4, "rate": 100}, "medium": {"w": 8, "n": 9, "rate": 89}, "hard": {"w": 7, "n": 7, "rate": 100}}, "tests": {"1": {"success": true, "steps": 18, "score": 0, "time": 217.5, "start": "Pizza", "target": "Albert Einstein", "diff": "medium", "path": [], "reasons": []}, "2": {"success": true, "steps": 2, "score": 886, "time": 7.0, "start": "Volleyball", "target": "French Revolution", "diff": "hard", "path": [], "reasons": []}, "3": {"success": true, "steps": 6, "score": 596, "time": 52.4, "start": "Shark", "target": "World War II", "diff": "easy", "path": [], "reasons": []}, "4": {"success": true, "steps": 14, "score": 19, "time": 140.7, "start": "Coffee", "target": "Isaac Newton", "diff": "medium", "path": [], "reasons": []}, "5": {"success": true, "steps": 4, "score": 701, "time": 49.5, "start": "Bicycle", "target": "Ancient Rome", "diff": "hard", "path": [], "reasons": []}, "6": {"success": false, "steps": 2, "score": 0, "time": 0, "start": "Chocolate", "target": "Charles Darwin", "diff": "medium", "path": [], "reasons": []}, "7": {"success": true, "steps": 8, "score": 468, "time": 66.4, "start": "Soccer", "target": "Quantum mechanics", "diff": "hard", "path": [], "reasons": []}, "8": {"success": true, "steps": 3, "score": 806, "time": 22.0, "start": "Penguin", "target": "United States", "diff": "easy", "path": [], "reasons": []}, "9": {"success": true, "steps": 1, "score": 938, "time": 6.4, "start": "Guitar", "target": "Renaissance", "diff": "medium", "path": [], "reasons": []}, "10": {"success": true, "steps": 3, "score": 818, "time": 16.2, "start": "Sushi", "target": "Genghis Khan", "diff": "hard", "path": [], "reasons": []}, "11": {"success": true, "steps": 3, "score": 815, "time": 17.9, "start": "Elephant", "target": "Democracy", "diff": "medium", "path": [], "reasons": []}, "12": {"success": true, "steps": 8, "score": 414, "time": 93.4, "start": "Basketball", "target": "Space exploration", "diff": "medium", "path": [], "reasons": []}, "13": {"success": true, "steps": 2, "score": 885, "time": 7.7, "start": "Bread", "target": "Roman Empire", "diff": "easy", "path": [], "reasons": []}, "14": {"success": true, "steps": 8, "score": 454, "time": 73.0, "start": "Tornado", "target": "Marie Curie", "diff": "hard", "path": [], "reasons": []}, "15": {"success": true, "steps": 3, "score": 798, "time": 26.1, "start": "Chess", "target": "Cold War", "diff": "medium", "path": [], "reasons": []}, "16": {"success": true, "steps": 3, "score": 806, "time": 22.4, "start": "Honey", "target": "Karl Marx", "diff": "hard", "path": [], "reasons": []}, "17": {"success": true, "steps": 5, "score": 657, "time": 46.8, "start": "Dolphin", "target": "Industrial Revolution", "diff": "medium", "path": [], "reasons": []}, "18": {"success": true, "steps": 5, "score": 668, "time": 41.4, "start": "Tea", "target": "Napoleon Bonaparte", "diff": "medium", "path": [], "reasons": []}, "19": {"success": true, "steps": 4, "score": 740, "time": 30.1, "start": "Mountain", "target": "DNA", "diff": "hard", "path": [], "reasons": []}, "20": {"success": true, "steps": 1, "score": 948, "time": 1.1, "start": "Cricket (sport)", "target": "British Empire", "diff": "easy", "path": [], "reasons": []}}, "rank": 5}, {"model_id": "gemini/gemini-3.1-flash-lite-preview", "name": "Gemini 3.1 Flash Lite", "provider": "gemini", "tier": "Lite", "release_date": "2026-03-10", "wins": 19, "n": 20, "win_rate": 95.0, "avg_score": 614.5, "avg_steps": 6.7, "avg_time": 25.5, "by_diff": {"easy": {"w": 4, "n": 4, "rate": 100}, "medium": {"w": 8, "n": 9, "rate": 89}, "hard": {"w": 7, "n": 7, "rate": 100}}, "tests": {"1": {"success": true, "steps": 12, "score": 287, "time": 56.7, "start": "Pizza", "target": "Albert Einstein", "diff": "medium", "path": [], "reasons": []}, "2": {"success": true, "steps": 2, "score": 889, "time": 5.9, "start": "Volleyball", "target": "French Revolution", "diff": "hard", "path": [], "reasons": []}, "3": {"success": true, "steps": 5, "score": 587, "time": 81.8, "start": "Shark", "target": "World War II", "diff": "easy", "path": [], "reasons": []}, "4": {"success": true, "steps": 4, "score": 778, "time": 11.1, "start": "Coffee", "target": "Isaac Newton", "diff": "medium", "path": [], "reasons": []}, "5": {"success": true, "steps": 3, "score": 836, "time": 7.4, "start": "Bicycle", "target": "Ancient Rome", "diff": "hard", "path": [], "reasons": []}, "6": {"success": true, "steps": 5, "score": 721, "time": 14.7, "start": "Chocolate", "target": "Charles Darwin", "diff": "medium", "path": [], "reasons": []}, "7": {"success": true, "steps": 6, "score": 665, "time": 17.8, "start": "Soccer", "target": "Quantum mechanics", "diff": "hard", "path": [], "reasons": []}, "8": {"success": true, "steps": 7, "score": 594, "time": 28.0, "start": "Penguin", "target": "United States", "diff": "easy", "path": [], "reasons": []}, "9": {"success": true, "steps": 1, "score": 941, "time": 4.6, "start": "Guitar", "target": "Renaissance", "diff": "medium", "path": [], "reasons": []}, "10": {"success": true, "steps": 8, "score": 541, "time": 29.6, "start": "Sushi", "target": "Genghis Khan", "diff": "hard", "path": [], "reasons": []}, "11": {"success": true, "steps": 7, "score": 591, "time": 29.5, "start": "Elephant", "target": "Democracy", "diff": "medium", "path": [], "reasons": []}, "12": {"success": true, "steps": 7, "score": 586, "time": 32.1, "start": "Basketball", "target": "Space exploration", "diff": "medium", "path": [], "reasons": []}, "13": {"success": true, "steps": 2, "score": 888, "time": 6.4, "start": "Bread", "target": "Roman Empire", "diff": "easy", "path": [], "reasons": []}, "14": {"success": true, "steps": 11, "score": 359, "time": 45.8, "start": "Tornado", "target": "Marie Curie", "diff": "hard", "path": [], "reasons": []}, "15": {"success": true, "steps": 11, "score": 354, "time": 48.2, "start": "Chess", "target": "Cold War", "diff": "medium", "path": [], "reasons": []}, "16": {"success": true, "steps": 7, "score": 593, "time": 28.9, "start": "Honey", "target": "Karl Marx", "diff": "hard", "path": [], "reasons": []}, "17": {"success": true, "steps": 11, "score": 359, "time": 45.6, "start": "Dolphin", "target": "Industrial Revolution", "diff": "medium", "path": [], "reasons": []}, "18": {"success": false, "steps": 13, "score": 0, "time": 0, "start": "Tea", "target": "Napoleon Bonaparte", "diff": "medium", "path": [], "reasons": []}, "19": {"success": true, "steps": 4, "score": 772, "time": 14.0, "start": "Mountain", "target": "DNA", "diff": "hard", "path": [], "reasons": []}, "20": {"success": true, "steps": 1, "score": 948, "time": 1.2, "start": "Cricket (sport)", "target": "British Empire", "diff": "easy", "path": [], "reasons": []}}, "rank": 6}, {"model_id": "xai/grok-3", "name": "Grok 3", "provider": "xai", "tier": "Flagship", "release_date": "2025-02-17", "wins": 19, "n": 20, "win_rate": 95.0, "avg_score": 582.6, "avg_steps": 7.3, "avg_time": 26.4, "by_diff": {"easy": {"w": 4, "n": 4, "rate": 100}, "medium": {"w": 9, "n": 9, "rate": 100}, "hard": {"w": 6, "n": 7, "rate": 86}}, "tests": {"1": {"success": true, "steps": 5, "score": 712, "time": 19.4, "start": "Pizza", "target": "Albert Einstein", "diff": "medium", "path": [], "reasons": []}, "2": {"success": true, "steps": 2, "score": 889, "time": 5.8, "start": "Volleyball", "target": "French Revolution", "diff": "hard", "path": [], "reasons": []}, "3": {"success": true, "steps": 6, "score": 650, "time": 25.3, "start": "Shark", "target": "World War II", "diff": "easy", "path": [], "reasons": []}, "4": {"success": true, "steps": 7, "score": 591, "time": 29.9, "start": "Coffee", "target": "Isaac Newton", "diff": "medium", "path": [], "reasons": []}, "5": {"success": true, "steps": 3, "score": 831, "time": 9.6, "start": "Bicycle", "target": "Ancient Rome", "diff": "hard", "path": [], "reasons": []}, "6": {"success": true, "steps": 13, "score": 239, "time": 55.9, "start": "Chocolate", "target": "Charles Darwin", "diff": "medium", "path": [], "reasons": []}, "7": {"success": true, "steps": 11, "score": 355, "time": 47.5, "start": "Soccer", "target": "Quantum mechanics", "diff": "hard", "path": [], "reasons": []}, "8": {"success": true, "steps": 7, "score": 597, "time": 26.5, "start": "Penguin", "target": "United States", "diff": "easy", "path": [], "reasons": []}, "9": {"success": true, "steps": 1, "score": 942, "time": 4.1, "start": "Guitar", "target": "Renaissance", "diff": "medium", "path": [], "reasons": []}, "10": {"success": true, "steps": 7, "score": 583, "time": 33.6, "start": "Sushi", "target": "Genghis Khan", "diff": "hard", "path": [], "reasons": []}, "11": {"success": true, "steps": 10, "score": 405, "time": 47.7, "start": "Elephant", "target": "Democracy", "diff": "medium", "path": [], "reasons": []}, "12": {"success": true, "steps": 9, "score": 477, "time": 36.9, "start": "Basketball", "target": "Space exploration", "diff": "medium", "path": [], "reasons": []}, "13": {"success": true, "steps": 2, "score": 888, "time": 6.2, "start": "Bread", "target": "Roman Empire", "diff": "easy", "path": [], "reasons": []}, "14": {"success": false, "steps": 10, "score": 0, "time": 0, "start": "Tornado", "target": "Marie Curie", "diff": "hard", "path": [], "reasons": []}, "15": {"success": true, "steps": 3, "score": 831, "time": 9.9, "start": "Chess", "target": "Cold War", "diff": "medium", "path": [], "reasons": []}, "16": {"success": true, "steps": 12, "score": 303, "time": 48.6, "start": "Honey", "target": "Karl Marx", "diff": "hard", "path": [], "reasons": []}, "17": {"success": true, "steps": 15, "score": 106, "time": 72.1, "start": "Dolphin", "target": "Industrial Revolution", "diff": "medium", "path": [], "reasons": []}, "18": {"success": true, "steps": 8, "score": 533, "time": 33.5, "start": "Tea", "target": "Napoleon Bonaparte", "diff": "medium", "path": [], "reasons": []}, "19": {"success": true, "steps": 4, "score": 773, "time": 13.9, "start": "Mountain", "target": "DNA", "diff": "hard", "path": [], "reasons": []}, "20": {"success": true, "steps": 1, "score": 948, "time": 1.4, "start": "Cricket (sport)", "target": "British Empire", "diff": "easy", "path": [], "reasons": []}}, "rank": 7}, {"model_id": "openai/gpt-5-mini", "name": "GPT-5 Mini", "provider": "openai", "tier": "Mini", "release_date": "2026-02-20", "wins": 19, "n": 20, "win_rate": 95.0, "avg_score": 547.0, "avg_steps": 6.5, "avg_time": 74.6, "by_diff": {"easy": {"w": 4, "n": 4, "rate": 100}, "medium": {"w": 8, "n": 9, "rate": 89}, "hard": {"w": 7, "n": 7, "rate": 100}}, "tests": {"1": {"success": true, "steps": 13, "score": 32, "time": 159.2, "start": "Pizza", "target": "Albert Einstein", "diff": "medium", "path": [], "reasons": []}, "2": {"success": true, "steps": 2, "score": 885, "time": 7.8, "start": "Volleyball", "target": "French Revolution", "diff": "hard", "path": [], "reasons": []}, "3": {"success": true, "steps": 7, "score": 481, "time": 84.7, "start": "Shark", "target": "World War II", "diff": "easy", "path": [], "reasons": []}, "4": {"success": true, "steps": 6, "score": 587, "time": 56.8, "start": "Coffee", "target": "Isaac Newton", "diff": "medium", "path": [], "reasons": []}, "5": {"success": true, "steps": 5, "score": 638, "time": 56.4, "start": "Bicycle", "target": "Ancient Rome", "diff": "hard", "path": [], "reasons": []}, "6": {"success": true, "steps": 15, "score": 0, "time": 238.9, "start": "Chocolate", "target": "Charles Darwin", "diff": "medium", "path": [], "reasons": []}, "7": {"success": true, "steps": 14, "score": 0, "time": 244.8, "start": "Soccer", "target": "Quantum mechanics", "diff": "hard", "path": [], "reasons": []}, "8": {"success": true, "steps": 3, "score": 746, "time": 52.4, "start": "Penguin", "target": "United States", "diff": "easy", "path": [], "reasons": []}, "9": {"success": true, "steps": 1, "score": 928, "time": 11.0, "start": "Guitar", "target": "Renaissance", "diff": "medium", "path": [], "reasons": []}, "10": {"success": true, "steps": 3, "score": 805, "time": 22.6, "start": "Sushi", "target": "Genghis Khan", "diff": "hard", "path": [], "reasons": []}, "11": {"success": true, "steps": 5, "score": 627, "time": 61.5, "start": "Elephant", "target": "Democracy", "diff": "medium", "path": [], "reasons": []}, "12": {"success": true, "steps": 8, "score": 289, "time": 155.9, "start": "Basketball", "target": "Space exploration", "diff": "medium", "path": [], "reasons": []}, "13": {"success": true, "steps": 2, "score": 871, "time": 14.6, "start": "Bread", "target": "Roman Empire", "diff": "easy", "path": [], "reasons": []}, "14": {"success": true, "steps": 7, "score": 426, "time": 112.2, "start": "Tornado", "target": "Marie Curie", "diff": "hard", "path": [], "reasons": []}, "15": {"success": true, "steps": 3, "score": 774, "time": 38.0, "start": "Chess", "target": "Cold War", "diff": "medium", "path": [], "reasons": []}, "16": {"success": true, "steps": 6, "score": 527, "time": 86.5, "start": "Honey", "target": "Karl Marx", "diff": "hard", "path": [], "reasons": []}, "17": {"success": true, "steps": 5, "score": 644, "time": 53.0, "start": "Dolphin", "target": "Industrial Revolution", "diff": "medium", "path": [], "reasons": []}, "18": {"success": false, "steps": 10, "score": 0, "time": 0, "start": "Tea", "target": "Napoleon Bonaparte", "diff": "medium", "path": [], "reasons": []}, "19": {"success": true, "steps": 4, "score": 733, "time": 33.6, "start": "Mountain", "target": "DNA", "diff": "hard", "path": [], "reasons": []}, "20": {"success": true, "steps": 1, "score": 948, "time": 1.2, "start": "Cricket (sport)", "target": "British Empire", "diff": "easy", "path": [], "reasons": []}}, "rank": 8}, {"model_id": "xai/grok-3-mini", "name": "Grok 3 Mini", "provider": "xai", "tier": "Mini", "release_date": "2025-02-17", "wins": 19, "n": 20, "win_rate": 95.0, "avg_score": 467.9, "avg_steps": 7.1, "avg_time": 97.9, "by_diff": {"easy": {"w": 4, "n": 4, "rate": 100}, "medium": {"w": 8, "n": 9, "rate": 89}, "hard": {"w": 7, "n": 7, "rate": 100}}, "tests": {"1": {"success": true, "steps": 12, "score": 0, "time": 216.6, "start": "Pizza", "target": "Albert Einstein", "diff": "medium", "path": [], "reasons": []}, "2": {"success": true, "steps": 2, "score": 875, "time": 12.5, "start": "Volleyball", "target": "French Revolution", "diff": "hard", "path": [], "reasons": []}, "3": {"success": true, "steps": 10, "score": 166, "time": 167.0, "start": "Shark", "target": "World War II", "diff": "easy", "path": [], "reasons": []}, "4": {"success": true, "steps": 11, "score": 105, "time": 172.6, "start": "Coffee", "target": "Isaac Newton", "diff": "medium", "path": [], "reasons": []}, "5": {"success": true, "steps": 5, "score": 614, "time": 68.1, "start": "Bicycle", "target": "Ancient Rome", "diff": "hard", "path": [], "reasons": []}, "6": {"success": true, "steps": 15, "score": 0, "time": 292.0, "start": "Chocolate", "target": "Charles Darwin", "diff": "medium", "path": [], "reasons": []}, "7": {"success": true, "steps": 8, "score": 367, "time": 116.6, "start": "Soccer", "target": "Quantum mechanics", "diff": "hard", "path": [], "reasons": []}, "8": {"success": true, "steps": 6, "score": 491, "time": 104.9, "start": "Penguin", "target": "United States", "diff": "easy", "path": [], "reasons": []}, "9": {"success": true, "steps": 1, "score": 926, "time": 12.4, "start": "Guitar", "target": "Renaissance", "diff": "medium", "path": [], "reasons": []}, "10": {"success": true, "steps": 7, "score": 432, "time": 109.2, "start": "Sushi", "target": "Genghis Khan", "diff": "hard", "path": [], "reasons": []}, "11": {"success": true, "steps": 8, "score": 303, "time": 148.6, "start": "Elephant", "target": "Democracy", "diff": "medium", "path": [], "reasons": []}, "12": {"success": true, "steps": 10, "score": 205, "time": 147.9, "start": "Basketball", "target": "Space exploration", "diff": "medium", "path": [], "reasons": []}, "13": {"success": true, "steps": 2, "score": 864, "time": 18.3, "start": "Bread", "target": "Roman Empire", "diff": "easy", "path": [], "reasons": []}, "14": {"success": true, "steps": 6, "score": 493, "time": 103.8, "start": "Tornado", "target": "Marie Curie", "diff": "hard", "path": [], "reasons": []}, "15": {"success": true, "steps": 3, "score": 775, "time": 37.8, "start": "Chess", "target": "Cold War", "diff": "medium", "path": [], "reasons": []}, "16": {"success": true, "steps": 3, "score": 755, "time": 47.8, "start": "Honey", "target": "Karl Marx", "diff": "hard", "path": [], "reasons": []}, "17": {"success": true, "steps": 8, "score": 334, "time": 133.4, "start": "Dolphin", "target": "Industrial Revolution", "diff": "medium", "path": [], "reasons": []}, "18": {"success": false, "steps": 6, "score": 0, "time": 0, "start": "Tea", "target": "Napoleon Bonaparte", "diff": "medium", "path": [], "reasons": []}, "19": {"success": true, "steps": 4, "score": 705, "time": 47.7, "start": "Mountain", "target": "DNA", "diff": "hard", "path": [], "reasons": []}, "20": {"success": true, "steps": 1, "score": 948, "time": 1.2, "start": "Cricket (sport)", "target": "British Empire", "diff": "easy", "path": [], "reasons": []}}, "rank": 9}, {"model_id": "anthropic/claude-opus-4-7", "name": "Claude Opus 4.7", "provider": "anthropic", "tier": "Opus", "release_date": "2026-02-15", "wins": 18, "n": 20, "win_rate": 90.0, "avg_score": 629.8, "avg_steps": 6.6, "avg_time": 20.3, "by_diff": {"easy": {"w": 4, "n": 4, "rate": 100}, "medium": {"w": 7, "n": 9, "rate": 78}, "hard": {"w": 7, "n": 7, "rate": 100}}, "tests": {"1": {"success": false, "steps": 7, "score": 0, "time": 0, "start": "Pizza", "target": "Albert Einstein", "diff": "medium", "path": [], "reasons": []}, "2": {"success": true, "steps": 2, "score": 890, "time": 5.4, "start": "Volleyball", "target": "French Revolution", "diff": "hard", "path": [], "reasons": []}, "3": {"success": true, "steps": 4, "score": 768, "time": 16.1, "start": "Shark", "target": "World War II", "diff": "easy", "path": [], "reasons": []}, "4": {"success": true, "steps": 15, "score": 103, "time": 73.6, "start": "Coffee", "target": "Isaac Newton", "diff": "medium", "path": [], "reasons": []}, "5": {"success": true, "steps": 4, "score": 768, "time": 16.4, "start": "Bicycle", "target": "Ancient Rome", "diff": "hard", "path": [], "reasons": []}, "6": {"success": true, "steps": 5, "score": 712, "time": 19.3, "start": "Chocolate", "target": "Charles Darwin", "diff": "medium", "path": [], "reasons": []}, "7": {"success": true, "steps": 8, "score": 522, "time": 39.2, "start": "Soccer", "target": "Quantum mechanics", "diff": "hard", "path": [], "reasons": []}, "8": {"success": true, "steps": 3, "score": 826, "time": 12.0, "start": "Penguin", "target": "United States", "diff": "easy", "path": [], "reasons": []}, "9": {"success": true, "steps": 1, "score": 942, "time": 4.1, "start": "Guitar", "target": "Renaissance", "diff": "medium", "path": [], "reasons": []}, "10": {"success": true, "steps": 3, "score": 831, "time": 9.9, "start": "Sushi", "target": "Genghis Khan", "diff": "hard", "path": [], "reasons": []}, "11": {"success": false, "steps": 6, "score": 0, "time": 0, "start": "Elephant", "target": "Democracy", "diff": "medium", "path": [], "reasons": []}, "12": {"success": true, "steps": 10, "score": 406, "time": 47.3, "start": "Basketball", "target": "Space exploration", "diff": "medium", "path": [], "reasons": []}, "13": {"success": true, "steps": 2, "score": 886, "time": 7.0, "start": "Bread", "target": "Roman Empire", "diff": "easy", "path": [], "reasons": []}, "14": {"success": true, "steps": 7, "score": 588, "time": 31.1, "start": "Tornado", "target": "Marie Curie", "diff": "hard", "path": [], "reasons": []}, "15": {"success": true, "steps": 4, "score": 765, "time": 17.9, "start": "Chess", "target": "Cold War", "diff": "medium", "path": [], "reasons": []}, "16": {"success": true, "steps": 9, "score": 460, "time": 45.4, "start": "Honey", "target": "Karl Marx", "diff": "hard", "path": [], "reasons": []}, "17": {"success": true, "steps": 3, "score": 823, "time": 13.8, "start": "Dolphin", "target": "Industrial Revolution", "diff": "medium", "path": [], "reasons": []}, "18": {"success": true, "steps": 7, "score": 587, "time": 31.5, "start": "Tea", "target": "Napoleon Bonaparte", "diff": "medium", "path": [], "reasons": []}, "19": {"success": true, "steps": 4, "score": 771, "time": 14.9, "start": "Mountain", "target": "DNA", "diff": "hard", "path": [], "reasons": []}, "20": {"success": true, "steps": 1, "score": 948, "time": 1.4, "start": "Cricket (sport)", "target": "British Empire", "diff": "easy", "path": [], "reasons": []}}, "rank": 10}, {"model_id": "gemini/gemini-3-pro-preview", "name": "Gemini 3 Pro", "provider": "gemini", "tier": "Pro", "release_date": "2026-01-15", "wins": 18, "n": 20, "win_rate": 90.0, "avg_score": 612.0, "avg_steps": 6.5, "avg_time": 41.4, "by_diff": {"easy": {"w": 3, "n": 4, "rate": 75}, "medium": {"w": 8, "n": 9, "rate": 89}, "hard": {"w": 7, "n": 7, "rate": 100}}, "tests": {"1": {"success": true, "steps": 18, "score": 0, "time": 219.5, "start": "Pizza", "target": "Albert Einstein", "diff": "medium", "path": [], "reasons": []}, "2": {"success": true, "steps": 2, "score": 887, "time": 6.9, "start": "Volleyball", "target": "French Revolution", "diff": "hard", "path": [], "reasons": []}, "3": {"success": false, "steps": 1, "score": 0, "time": 0, "start": "Shark", "target": "World War II", "diff": "easy", "path": [], "reasons": []}, "4": {"success": true, "steps": 6, "score": 585, "time": 57.6, "start": "Coffee", "target": "Isaac Newton", "diff": "medium", "path": [], "reasons": []}, "5": {"success": true, "steps": 4, "score": 717, "time": 41.7, "start": "Bicycle", "target": "Ancient Rome", "diff": "hard", "path": [], "reasons": []}, "6": {"success": false, "steps": 2, "score": 0, "time": 0, "start": "Chocolate", "target": "Charles Darwin", "diff": "medium", "path": [], "reasons": []}, "7": {"success": true, "steps": 6, "score": 580, "time": 60.4, "start": "Soccer", "target": "Quantum mechanics", "diff": "hard", "path": [], "reasons": []}, "8": {"success": true, "steps": 3, "score": 811, "time": 19.7, "start": "Penguin", "target": "United States", "diff": "easy", "path": [], "reasons": []}, "9": {"success": true, "steps": 1, "score": 937, "time": 6.7, "start": "Guitar", "target": "Renaissance", "diff": "medium", "path": [], "reasons": []}, "10": {"success": true, "steps": 3, "score": 818, "time": 16.2, "start": "Sushi", "target": "Genghis Khan", "diff": "hard", "path": [], "reasons": []}, "11": {"success": true, "steps": 3, "score": 804, "time": 23.4, "start": "Elephant", "target": "Democracy", "diff": "medium", "path": [], "reasons": []}, "12": {"success": true, "steps": 11, "score": 235, "time": 107.7, "start": "Basketball", "target": "Space exploration", "diff": "medium", "path": [], "reasons": []}, "13": {"success": true, "steps": 2, "score": 879, "time": 10.8, "start": "Bread", "target": "Roman Empire", "diff": "easy", "path": [], "reasons": []}, "14": {"success": true, "steps": 9, "score": 376, "time": 87.3, "start": "Tornado", "target": "Marie Curie", "diff": "hard", "path": [], "reasons": []}, "15": {"success": true, "steps": 3, "score": 813, "time": 18.6, "start": "Chess", "target": "Cold War", "diff": "medium", "path": [], "reasons": []}, "16": {"success": true, "steps": 3, "score": 806, "time": 22.2, "start": "Honey", "target": "Karl Marx", "diff": "hard", "path": [], "reasons": []}, "17": {"success": true, "steps": 5, "score": 666, "time": 42.3, "start": "Dolphin", "target": "Industrial Revolution", "diff": "medium", "path": [], "reasons": []}, "18": {"success": true, "steps": 5, "score": 642, "time": 54.3, "start": "Tea", "target": "Napoleon Bonaparte", "diff": "medium", "path": [], "reasons": []}, "19": {"success": true, "steps": 4, "score": 736, "time": 32.4, "start": "Mountain", "target": "DNA", "diff": "hard", "path": [], "reasons": []}, "20": {"success": true, "steps": 1, "score": 949, "time": 0.8, "start": "Cricket (sport)", "target": "British Empire", "diff": "easy", "path": [], "reasons": []}}, "rank": 11}, {"model_id": "openai/gpt-5", "name": "GPT-5", "provider": "openai", "tier": "Flagship", "release_date": "2026-02-20", "wins": 18, "n": 20, "win_rate": 90.0, "avg_score": 487.2, "avg_steps": 7.9, "avg_time": 92.2, "by_diff": {"easy": {"w": 4, "n": 4, "rate": 100}, "medium": {"w": 8, "n": 9, "rate": 89}, "hard": {"w": 6, "n": 7, "rate": 86}}, "tests": {"1": {"success": true, "steps": 17, "score": 0, "time": 358.2, "start": "Pizza", "target": "Albert Einstein", "diff": "medium", "path": [], "reasons": []}, "2": {"success": true, "steps": 2, "score": 883, "time": 8.5, "start": "Volleyball", "target": "French Revolution", "diff": "hard", "path": [], "reasons": []}, "3": {"success": true, "steps": 4, "score": 655, "time": 72.5, "start": "Shark", "target": "World War II", "diff": "easy", "path": [], "reasons": []}, "4": {"success": true, "steps": 17, "score": 0, "time": 245.4, "start": "Coffee", "target": "Isaac Newton", "diff": "medium", "path": [], "reasons": []}, "5": {"success": false, "steps": 4, "score": 0, "time": 0, "start": "Bicycle", "target": "Ancient Rome", "diff": "hard", "path": [], "reasons": []}, "6": {"success": true, "steps": 11, "score": 92, "time": 179.3, "start": "Chocolate", "target": "Charles Darwin", "diff": "medium", "path": [], "reasons": []}, "7": {"success": true, "steps": 16, "score": 0, "time": 309.5, "start": "Soccer", "target": "Quantum mechanics", "diff": "hard", "path": [], "reasons": []}, "8": {"success": true, "steps": 3, "score": 779, "time": 35.8, "start": "Penguin", "target": "United States", "diff": "easy", "path": [], "reasons": []}, "9": {"success": true, "steps": 1, "score": 934, "time": 8.3, "start": "Guitar", "target": "Renaissance", "diff": "medium", "path": [], "reasons": []}, "10": {"success": true, "steps": 4, "score": 707, "time": 46.7, "start": "Sushi", "target": "Genghis Khan", "diff": "hard", "path": [], "reasons": []}, "11": {"success": true, "steps": 5, "score": 577, "time": 86.7, "start": "Elephant", "target": "Democracy", "diff": "medium", "path": [], "reasons": []}, "12": {"success": true, "steps": 5, "score": 608, "time": 71.4, "start": "Basketball", "target": "Space exploration", "diff": "medium", "path": [], "reasons": []}, "13": {"success": true, "steps": 2, "score": 884, "time": 8.0, "start": "Bread", "target": "Roman Empire", "diff": "easy", "path": [], "reasons": []}, "14": {"success": true, "steps": 6, "score": 468, "time": 116.1, "start": "Tornado", "target": "Marie Curie", "diff": "hard", "path": [], "reasons": []}, "15": {"success": true, "steps": 3, "score": 809, "time": 20.5, "start": "Chess", "target": "Cold War", "diff": "medium", "path": [], "reasons": []}, "16": {"success": true, "steps": 6, "score": 535, "time": 82.6, "start": "Honey", "target": "Karl Marx", "diff": "hard", "path": [], "reasons": []}, "17": {"success": true, "steps": 11, "score": 148, "time": 151.0, "start": "Dolphin", "target": "Industrial Revolution", "diff": "medium", "path": [], "reasons": []}, "18": {"success": false, "steps": 10, "score": 0, "time": 0, "start": "Tea", "target": "Napoleon Bonaparte", "diff": "medium", "path": [], "reasons": []}, "19": {"success": true, "steps": 4, "score": 719, "time": 40.9, "start": "Mountain", "target": "DNA", "diff": "hard", "path": [], "reasons": []}, "20": {"success": true, "steps": 1, "score": 947, "time": 1.7, "start": "Cricket (sport)", "target": "British Empire", "diff": "easy", "path": [], "reasons": []}}, "rank": 12}, {"model_id": "gemini/gemini-3-flash-preview", "name": "Gemini 3 Flash", "provider": "gemini", "tier": "Flash", "release_date": "2025-12-11", "wins": 17, "n": 20, "win_rate": 85.0, "avg_score": 614.0, "avg_steps": 6.6, "avg_time": 28.2, "by_diff": {"easy": {"w": 4, "n": 4, "rate": 100}, "medium": {"w": 6, "n": 9, "rate": 67}, "hard": {"w": 7, "n": 7, "rate": 100}}, "tests": {"1": {"success": true, "steps": 11, "score": 236, "time": 107.3, "start": "Pizza", "target": "Albert Einstein", "diff": "medium", "path": [], "reasons": []}, "2": {"success": true, "steps": 2, "score": 890, "time": 5.4, "start": "Volleyball", "target": "French Revolution", "diff": "hard", "path": [], "reasons": []}, "3": {"success": true, "steps": 6, "score": 625, "time": 37.8, "start": "Shark", "target": "World War II", "diff": "easy", "path": [], "reasons": []}, "4": {"success": false, "steps": 14, "score": 0, "time": 0, "start": "Coffee", "target": "Isaac Newton", "diff": "medium", "path": [], "reasons": []}, "5": {"success": true, "steps": 4, "score": 647, "time": 76.6, "start": "Bicycle", "target": "Ancient Rome", "diff": "hard", "path": [], "reasons": []}, "6": {"success": false, "steps": 2, "score": 0, "time": 0, "start": "Chocolate", "target": "Charles Darwin", "diff": "medium", "path": [], "reasons": []}, "7": {"success": true, "steps": 8, "score": 466, "time": 67.4, "start": "Soccer", "target": "Quantum mechanics", "diff": "hard", "path": [], "reasons": []}, "8": {"success": true, "steps": 3, "score": 818, "time": 16.4, "start": "Penguin", "target": "United States", "diff": "easy", "path": [], "reasons": []}, "9": {"success": true, "steps": 1, "score": 939, "time": 5.8, "start": "Guitar", "target": "Renaissance", "diff": "medium", "path": [], "reasons": []}, "10": {"success": true, "steps": 3, "score": 826, "time": 12.4, "start": "Sushi", "target": "Genghis Khan", "diff": "hard", "path": [], "reasons": []}, "11": {"success": true, "steps": 4, "score": 745, "time": 27.6, "start": "Elephant", "target": "Democracy", "diff": "medium", "path": [], "reasons": []}, "12": {"success": false, "steps": 4, "score": 0, "time": 0, "start": "Basketball", "target": "Space exploration", "diff": "medium", "path": [], "reasons": []}, "13": {"success": true, "steps": 2, "score": 888, "time": 6.1, "start": "Bread", "target": "Roman Empire", "diff": "easy", "path": [], "reasons": []}, "14": {"success": true, "steps": 6, "score": 620, "time": 40.0, "start": "Tornado", "target": "Marie Curie", "diff": "hard", "path": [], "reasons": []}, "15": {"success": true, "steps": 3, "score": 820, "time": 15.1, "start": "Chess", "target": "Cold War", "diff": "medium", "path": [], "reasons": []}, "16": {"success": true, "steps": 3, "score": 812, "time": 19.4, "start": "Honey", "target": "Karl Marx", "diff": "hard", "path": [], "reasons": []}, "17": {"success": true, "steps": 6, "score": 578, "time": 61.2, "start": "Dolphin", "target": "Industrial Revolution", "diff": "medium", "path": [], "reasons": []}, "18": {"success": true, "steps": 5, "score": 659, "time": 45.5, "start": "Tea", "target": "Napoleon Bonaparte", "diff": "medium", "path": [], "reasons": []}, "19": {"success": true, "steps": 4, "score": 762, "time": 19.4, "start": "Mountain", "target": "DNA", "diff": "hard", "path": [], "reasons": []}, "20": {"success": true, "steps": 1, "score": 948, "time": 1.3, "start": "Cricket (sport)", "target": "British Empire", "diff": "easy", "path": [], "reasons": []}}, "rank": 13}, {"model_id": "gemini/gemini-2.5-flash", "name": "Gemini 2.5 Flash", "provider": "gemini", "tier": "Flash", "release_date": "2025-03-25", "wins": 17, "n": 20, "win_rate": 85.0, "avg_score": 524.5, "avg_steps": 8.1, "avg_time": 50.2, "by_diff": {"easy": {"w": 4, "n": 4, "rate": 100}, "medium": {"w": 6, "n": 9, "rate": 67}, "hard": {"w": 7, "n": 7, "rate": 100}}, "tests": {"1": {"success": true, "steps": 14, "score": 0, "time": 166.5, "start": "Pizza", "target": "Albert Einstein", "diff": "medium", "path": [], "reasons": []}, "2": {"success": true, "steps": 2, "score": 876, "time": 12.2, "start": "Volleyball", "target": "French Revolution", "diff": "hard", "path": [], "reasons": []}, "3": {"success": true, "steps": 6, "score": 606, "time": 47.0, "start": "Shark", "target": "World War II", "diff": "easy", "path": [], "reasons": []}, "4": {"success": false, "steps": 12, "score": 0, "time": 0, "start": "Coffee", "target": "Isaac Newton", "diff": "medium", "path": [], "reasons": []}, "5": {"success": true, "steps": 4, "score": 711, "time": 44.5, "start": "Bicycle", "target": "Ancient Rome", "diff": "hard", "path": [], "reasons": []}, "6": {"success": true, "steps": 8, "score": 473, "time": 63.7, "start": "Chocolate", "target": "Charles Darwin", "diff": "medium", "path": [], "reasons": []}, "7": {"success": true, "steps": 8, "score": 430, "time": 85.0, "start": "Soccer", "target": "Quantum mechanics", "diff": "hard", "path": [], "reasons": []}, "8": {"success": true, "steps": 5, "score": 640, "time": 55.0, "start": "Penguin", "target": "United States", "diff": "easy", "path": [], "reasons": []}, "9": {"success": true, "steps": 1, "score": 940, "time": 5.2, "start": "Guitar", "target": "Renaissance", "diff": "medium", "path": [], "reasons": []}, "10": {"success": true, "steps": 3, "score": 822, "time": 14.1, "start": "Sushi", "target": "Genghis Khan", "diff": "hard", "path": [], "reasons": []}, "11": {"success": false, "steps": 3, "score": 0, "time": 0, "start": "Elephant", "target": "Democracy", "diff": "medium", "path": [], "reasons": []}, "12": {"success": true, "steps": 7, "score": 516, "time": 67.4, "start": "Basketball", "target": "Space exploration", "diff": "medium", "path": [], "reasons": []}, "13": {"success": true, "steps": 2, "score": 878, "time": 11.0, "start": "Bread", "target": "Roman Empire", "diff": "easy", "path": [], "reasons": []}, "14": {"success": true, "steps": 6, "score": 583, "time": 58.7, "start": "Tornado", "target": "Marie Curie", "diff": "hard", "path": [], "reasons": []}, "15": {"success": true, "steps": 4, "score": 726, "time": 37.4, "start": "Chess", "target": "Cold War", "diff": "medium", "path": [], "reasons": []}, "16": {"success": true, "steps": 6, "score": 588, "time": 56.4, "start": "Honey", "target": "Karl Marx", "diff": "hard", "path": [], "reasons": []}, "17": {"success": true, "steps": 20, "score": 0, "time": 254.7, "start": "Dolphin", "target": "Industrial Revolution", "diff": "medium", "path": [], "reasons": []}, "18": {"success": false, "steps": 6, "score": 0, "time": 0, "start": "Tea", "target": "Napoleon Bonaparte", "diff": "medium", "path": [], "reasons": []}, "19": {"success": true, "steps": 4, "score": 752, "time": 24.2, "start": "Mountain", "target": "DNA", "diff": "hard", "path": [], "reasons": []}, "20": {"success": true, "steps": 1, "score": 949, "time": 0.7, "start": "Cricket (sport)", "target": "British Empire", "diff": "easy", "path": [], "reasons": []}}, "rank": 14}, {"model_id": "anthropic/claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5", "provider": "anthropic", "tier": "Haiku", "release_date": "2025-10-01", "wins": 15, "n": 20, "win_rate": 75.0, "avg_score": 577.3, "avg_steps": 8.0, "avg_time": 11.5, "by_diff": {"easy": {"w": 4, "n": 4, "rate": 100}, "medium": {"w": 6, "n": 9, "rate": 67}, "hard": {"w": 5, "n": 7, "rate": 71}}, "tests": {"1": {"success": true, "steps": 4, "score": 775, "time": 12.7, "start": "Pizza", "target": "Albert Einstein", "diff": "medium", "path": [], "reasons": []}, "2": {"success": true, "steps": 2, "score": 890, "time": 5.1, "start": "Volleyball", "target": "French Revolution", "diff": "hard", "path": [], "reasons": []}, "3": {"success": true, "steps": 5, "score": 710, "time": 20.0, "start": "Shark", "target": "World War II", "diff": "easy", "path": [], "reasons": []}, "4": {"success": false, "steps": 7, "score": 0, "time": 0, "start": "Coffee", "target": "Isaac Newton", "diff": "medium", "path": [], "reasons": []}, "5": {"success": true, "steps": 3, "score": 829, "time": 10.6, "start": "Bicycle", "target": "Ancient Rome", "diff": "hard", "path": [], "reasons": []}, "6": {"success": true, "steps": 4, "score": 777, "time": 11.8, "start": "Chocolate", "target": "Charles Darwin", "diff": "medium", "path": [], "reasons": []}, "7": {"success": false, "steps": 5, "score": 0, "time": 0, "start": "Soccer", "target": "Quantum mechanics", "diff": "hard", "path": [], "reasons": []}, "9": {"success": true, "steps": 1, "score": 943, "time": 3.7, "start": "Guitar", "target": "Renaissance", "diff": "medium", "path": [], "reasons": []}, "10": {"success": true, "steps": 8, "score": 529, "time": 35.9, "start": "Sushi", "target": "Genghis Khan", "diff": "hard", "path": [], "reasons": []}, "11": {"success": true, "steps": 6, "score": 649, "time": 25.6, "start": "Elephant", "target": "Democracy", "diff": "medium", "path": [], "reasons": []}, "12": {"success": false, "steps": 4, "score": 0, "time": 0, "start": "Basketball", "target": "Space exploration", "diff": "medium", "path": [], "reasons": []}, "13": {"success": true, "steps": 2, "score": 890, "time": 5.0, "start": "Bread", "target": "Roman Empire", "diff": "easy", "path": [], "reasons": []}, "14": {"success": false, "steps": 6, "score": 0, "time": 0, "start": "Tornado", "target": "Marie Curie", "diff": "hard", "path": [], "reasons": []}, "15": {"success": true, "steps": 4, "score": 774, "time": 13.0, "start": "Chess", "target": "Cold War", "diff": "medium", "path": [], "reasons": []}, "16": {"success": true, "steps": 7, "score": 598, "time": 26.1, "start": "Honey", "target": "Karl Marx", "diff": "hard", "path": [], "reasons": []}, "17": {"success": true, "steps": 5, "score": 703, "time": 23.6, "start": "Dolphin", "target": "Industrial Revolution", "diff": "medium", "path": [], "reasons": []}, "18": {"success": false, "steps": 5, "score": 0, "time": 0, "start": "Tea", "target": "Napoleon Bonaparte", "diff": "medium", "path": [], "reasons": []}, "19": {"success": true, "steps": 4, "score": 772, "time": 14.3, "start": "Mountain", "target": "DNA", "diff": "hard", "path": [], "reasons": []}, "20": {"success": true, "steps": 1, "score": 949, "time": 0.6, "start": "Cricket (sport)", "target": "British Empire", "diff": "easy", "path": [], "reasons": []}, "8": {"success": true, "steps": 4, "score": 758, "time": 21.2, "start": "Penguin", "target": "United States", "diff": "easy", "path": ["Penguin", "Galapagos penguin", "Ecuador", "Geographic coordinate system", "United States"], "reasons": ["", "The Galapagos penguin is found in the Galapagos Islands, which are part of Ecuador, and this geographic connection can l", "Ecuador is the country where the Gal\u00e1pagos Islands are located, and from there I can navigate to countries and regions t", "This is a meta page that won't help; I need to backtrack and find a better path toward the United States through geograp", "Direct link to target found on this page."]}}, "rank": 15}, {"model_id": "openai/gpt-4o-mini", "name": "GPT-4o Mini", "provider": "openai", "tier": "Mini", "release_date": "2024-07-18", "wins": 14, "n": 20, "win_rate": 70.0, "avg_score": 418.6, "avg_steps": 10.8, "avg_time": 31.2, "by_diff": {"easy": {"w": 4, "n": 4, "rate": 100}, "medium": {"w": 5, "n": 9, "rate": 56}, "hard": {"w": 5, "n": 7, "rate": 71}}, "tests": {"1": {"success": true, "steps": 12, "score": 282, "time": 59.3, "start": "Pizza", "target": "Albert Einstein", "diff": "medium", "path": [], "reasons": []}, "2": {"success": true, "steps": 2, "score": 886, "time": 7.4, "start": "Volleyball", "target": "French Revolution", "diff": "hard", "path": [], "reasons": []}, "3": {"success": true, "steps": 9, "score": 469, "time": 40.6, "start": "Shark", "target": "World War II", "diff": "easy", "path": [], "reasons": []}, "4": {"success": true, "steps": 15, "score": 110, "time": 70.4, "start": "Coffee", "target": "Isaac Newton", "diff": "medium", "path": [], "reasons": []}, "5": {"success": true, "steps": 8, "score": 528, "time": 36.3, "start": "Bicycle", "target": "Ancient Rome", "diff": "hard", "path": [], "reasons": []}, "6": {"success": true, "steps": 14, "score": 173, "time": 63.5, "start": "Chocolate", "target": "Charles Darwin", "diff": "medium", "path": [], "reasons": []}, "7": {"success": false, "steps": 9, "score": 0, "time": 0, "start": "Soccer", "target": "Quantum mechanics", "diff": "hard", "path": [], "reasons": []}, "8": {"success": true, "steps": 4, "score": 766, "time": 17.2, "start": "Penguin", "target": "United States", "diff": "easy", "path": [], "reasons": []}, "9": {"success": true, "steps": 1, "score": 942, "time": 4.3, "start": "Guitar", "target": "Renaissance", "diff": "medium", "path": [], "reasons": []}, "10": {"success": true, "steps": 6, "score": 650, "time": 25.2, "start": "Sushi", "target": "Genghis Khan", "diff": "hard", "path": [], "reasons": []}, "11": {"success": false, "steps": 5, "score": 0, "time": 0, "start": "Elephant", "target": "Democracy", "diff": "medium", "path": [], "reasons": []}, "12": {"success": false, "steps": 20, "score": 0, "time": 98.8, "start": "Basketball", "target": "Space exploration", "diff": "medium", "path": [], "reasons": []}, "13": {"success": true, "steps": 2, "score": 888, "time": 6.3, "start": "Bread", "target": "Roman Empire", "diff": "easy", "path": [], "reasons": []}, "14": {"success": true, "steps": 10, "score": 416, "time": 42.4, "start": "Tornado", "target": "Marie Curie", "diff": "hard", "path": [], "reasons": []}, "15": {"success": true, "steps": 3, "score": 828, "time": 11.0, "start": "Chess", "target": "Cold War", "diff": "medium", "path": [], "reasons": []}, "16": {"success": false, "steps": 20, "score": 0, "time": 106.8, "start": "Honey", "target": "Karl Marx", "diff": "hard", "path": [], "reasons": []}, "17": {"success": false, "steps": 7, "score": 0, "time": 0, "start": "Dolphin", "target": "Industrial Revolution", "diff": "medium", "path": [], "reasons": []}, "18": {"success": false, "steps": 9, "score": 0, "time": 0, "start": "Tea", "target": "Napoleon Bonaparte", "diff": "medium", "path": [], "reasons": []}, "19": {"success": true, "steps": 9, "score": 485, "time": 32.8, "start": "Mountain", "target": "DNA", "diff": "hard", "path": [], "reasons": []}, "20": {"success": true, "steps": 1, "score": 948, "time": 1.3, "start": "Cricket (sport)", "target": "British Empire", "diff": "easy", "path": [], "reasons": []}}, "rank": 16}, {"model_id": "openai/gpt-5.4-mini", "name": "GPT-5.4 Mini", "provider": "openai", "tier": "Mini", "release_date": "2026-04-01", "wins": 11, "n": 20, "win_rate": 55.0, "avg_score": 398.2, "avg_steps": 11.6, "avg_time": 20.3, "by_diff": {"easy": {"w": 2, "n": 4, "rate": 50}, "medium": {"w": 5, "n": 9, "rate": 56}, "hard": {"w": 4, "n": 7, "rate": 57}}, "tests": {"1": {"success": false, "steps": 6, "score": 0, "time": 0, "start": "Pizza", "target": "Albert Einstein", "diff": "medium", "path": [], "reasons": []}, "2": {"success": true, "steps": 2, "score": 889, "time": 5.9, "start": "Volleyball", "target": "French Revolution", "diff": "hard", "path": [], "reasons": []}, "3": {"success": false, "steps": 6, "score": 0, "time": 0, "start": "Shark", "target": "World War II", "diff": "easy", "path": [], "reasons": []}, "4": {"success": true, "steps": 6, "score": 655, "time": 22.7, "start": "Coffee", "target": "Isaac Newton", "diff": "medium", "path": [], "reasons": []}, "5": {"success": true, "steps": 3, "score": 833, "time": 8.9, "start": "Bicycle", "target": "Ancient Rome", "diff": "hard", "path": [], "reasons": []}, "6": {"success": true, "steps": 6, "score": 648, "time": 26.3, "start": "Chocolate", "target": "Charles Darwin", "diff": "medium", "path": [], "reasons": []}, "7": {"success": true, "steps": 10, "score": 382, "time": 59.2, "start": "Soccer", "target": "Quantum mechanics", "diff": "hard", "path": [], "reasons": []}, "8": {"success": false, "steps": 9, "score": 0, "time": 0, "start": "Penguin", "target": "United States", "diff": "easy", "path": [], "reasons": []}, "9": {"success": true, "steps": 1, "score": 942, "time": 4.1, "start": "Guitar", "target": "Renaissance", "diff": "medium", "path": [], "reasons": []}, "10": {"success": true, "steps": 5, "score": 717, "time": 16.7, "start": "Sushi", "target": "Genghis Khan", "diff": "hard", "path": [], "reasons": []}, "11": {"success": false, "steps": 6, "score": 0, "time": 0, "start": "Elephant", "target": "Democracy", "diff": "medium", "path": [], "reasons": []}, "12": {"success": true, "steps": 8, "score": 534, "time": 33.1, "start": "Basketball", "target": "Space exploration", "diff": "medium", "path": [], "reasons": []}, "13": {"success": true, "steps": 2, "score": 889, "time": 5.5, "start": "Bread", "target": "Roman Empire", "diff": "easy", "path": [], "reasons": []}, "14": {"success": false, "steps": 20, "score": 0, "time": 96.3, "start": "Tornado", "target": "Marie Curie", "diff": "hard", "path": [], "reasons": []}, "15": {"success": false, "steps": 2, "score": 0, "time": 0, "start": "Chess", "target": "Cold War", "diff": "medium", "path": [], "reasons": []}, "16": {"success": false, "steps": 8, "score": 0, "time": 0, "start": "Honey", "target": "Karl Marx", "diff": "hard", "path": [], "reasons": []}, "17": {"success": false, "steps": 20, "score": 0, "time": 88.6, "start": "Dolphin", "target": "Industrial Revolution", "diff": "medium", "path": [], "reasons": []}, "18": {"success": true, "steps": 8, "score": 528, "time": 36.3, "start": "Tea", "target": "Napoleon Bonaparte", "diff": "medium", "path": [], "reasons": []}, "19": {"success": false, "steps": 5, "score": 0, "time": 0, "start": "Mountain", "target": "DNA", "diff": "hard", "path": [], "reasons": []}, "20": {"success": true, "steps": 1, "score": 947, "time": 1.9, "start": "Cricket (sport)", "target": "British Empire", "diff": "easy", "path": [], "reasons": []}}, "rank": 17}, {"model_id": "openai/gpt-5.4-nano", "name": "GPT-5.4 Nano", "provider": "openai", "tier": "Nano", "release_date": "2026-04-01", "wins": 11, "n": 20, "win_rate": 55.0, "avg_score": 386.5, "avg_steps": 11.8, "avg_time": 11.9, "by_diff": {"easy": {"w": 3, "n": 4, "rate": 75}, "medium": {"w": 3, "n": 9, "rate": 33}, "hard": {"w": 5, "n": 7, "rate": 71}}, "tests": {"1": {"success": false, "steps": 18, "score": 0, "time": 0, "start": "Pizza", "target": "Albert Einstein", "diff": "medium", "path": [], "reasons": []}, "2": {"success": true, "steps": 3, "score": 829, "time": 10.7, "start": "Volleyball", "target": "French Revolution", "diff": "hard", "path": [], "reasons": []}, "3": {"success": false, "steps": 4, "score": 0, "time": 0, "start": "Shark", "target": "World War II", "diff": "easy", "path": [], "reasons": []}, "4": {"success": false, "steps": 10, "score": 0, "time": 0, "start": "Coffee", "target": "Isaac Newton", "diff": "medium", "path": [], "reasons": []}, "5": {"success": true, "steps": 6, "score": 645, "time": 27.7, "start": "Bicycle", "target": "Ancient Rome", "diff": "hard", "path": [], "reasons": []}, "6": {"success": true, "steps": 6, "score": 649, "time": 25.7, "start": "Chocolate", "target": "Charles Darwin", "diff": "medium", "path": [], "reasons": []}, "7": {"success": true, "steps": 10, "score": 410, "time": 45.0, "start": "Soccer", "target": "Quantum mechanics", "diff": "hard", "path": [], "reasons": []}, "8": {"success": true, "steps": 3, "score": 826, "time": 12.2, "start": "Penguin", "target": "United States", "diff": "easy", "path": [], "reasons": []}, "9": {"success": true, "steps": 1, "score": 942, "time": 4.3, "start": "Guitar", "target": "Renaissance", "diff": "medium", "path": [], "reasons": []}, "10": {"success": false, "steps": 9, "score": 0, "time": 0, "start": "Sushi", "target": "Genghis Khan", "diff": "hard", "path": [], "reasons": []}, "11": {"success": true, "steps": 7, "score": 597, "time": 26.8, "start": "Elephant", "target": "Democracy", "diff": "medium", "path": [], "reasons": []}, "12": {"success": false, "steps": 3, "score": 0, "time": 0, "start": "Basketball", "target": "Space exploration", "diff": "medium", "path": [], "reasons": []}, "13": {"success": true, "steps": 2, "score": 888, "time": 6.4, "start": "Bread", "target": "Roman Empire", "diff": "easy", "path": [], "reasons": []}, "14": {"success": false, "steps": 7, "score": 0, "time": 0, "start": "Tornado", "target": "Marie Curie", "diff": "hard", "path": [], "reasons": []}, "15": {"success": false, "steps": 4, "score": 0, "time": 0, "start": "Chess", "target": "Cold War", "diff": "medium", "path": [], "reasons": []}, "16": {"success": true, "steps": 13, "score": 234, "time": 58.4, "start": "Honey", "target": "Karl Marx", "diff": "hard", "path": [], "reasons": []}, "17": {"success": false, "steps": 15, "score": 0, "time": 0, "start": "Dolphin", "target": "Industrial Revolution", "diff": "medium", "path": [], "reasons": []}, "18": {"success": false, "steps": 1, "score": 0, "time": 0, "start": "Tea", "target": "Napoleon Bonaparte", "diff": "medium", "path": [], "reasons": []}, "19": {"success": true, "steps": 4, "score": 763, "time": 18.8, "start": "Mountain", "target": "DNA", "diff": "hard", "path": [], "reasons": []}, "20": {"success": true, "steps": 1, "score": 947, "time": 1.7, "start": "Cricket (sport)", "target": "British Empire", "diff": "easy", "path": [], "reasons": []}}, "rank": 18}, {"model_id": "openai/gpt-4.1-mini", "name": "GPT-4.1 Mini", "provider": "openai", "tier": "Mini", "release_date": "2025-04-14", "wins": 11, "n": 20, "win_rate": 55.0, "avg_score": 371.2, "avg_steps": 12.1, "avg_time": 18.2, "by_diff": {"easy": {"w": 2, "n": 4, "rate": 50}, "medium": {"w": 3, "n": 9, "rate": 33}, "hard": {"w": 6, "n": 7, "rate": 86}}, "tests": {"1": {"success": false, "steps": 20, "score": 0, "time": 99.6, "start": "Pizza", "target": "Albert Einstein", "diff": "medium", "path": [], "reasons": []}, "2": {"success": true, "steps": 2, "score": 889, "time": 5.5, "start": "Volleyball", "target": "French Revolution", "diff": "hard", "path": [], "reasons": []}, "3": {"success": false, "steps": 15, "score": 0, "time": 0, "start": "Shark", "target": "World War II", "diff": "easy", "path": [], "reasons": []}, "4": {"success": false, "steps": 3, "score": 0, "time": 0, "start": "Coffee", "target": "Isaac Newton", "diff": "medium", "path": [], "reasons": []}, "5": {"success": true, "steps": 8, "score": 533, "time": 33.5, "start": "Bicycle", "target": "Ancient Rome", "diff": "hard", "path": [], "reasons": []}, "6": {"success": false, "steps": 15, "score": 0, "time": 0, "start": "Chocolate", "target": "Charles Darwin", "diff": "medium", "path": [], "reasons": []}, "7": {"success": true, "steps": 15, "score": 123, "time": 63.5, "start": "Soccer", "target": "Quantum mechanics", "diff": "hard", "path": [], "reasons": []}, "8": {"success": false, "steps": 3, "score": 0, "time": 0, "start": "Penguin", "target": "United States", "diff": "easy", "path": [], "reasons": []}, "9": {"success": true, "steps": 1, "score": 940, "time": 5.1, "start": "Guitar", "target": "Renaissance", "diff": "medium", "path": [], "reasons": []}, "10": {"success": true, "steps": 9, "score": 476, "time": 37.1, "start": "Sushi", "target": "Genghis Khan", "diff": "hard", "path": [], "reasons": []}, "11": {"success": true, "steps": 6, "score": 643, "time": 28.7, "start": "Elephant", "target": "Democracy", "diff": "medium", "path": [], "reasons": []}, "12": {"success": false, "steps": 5, "score": 0, "time": 0, "start": "Basketball", "target": "Space exploration", "diff": "medium", "path": [], "reasons": []}, "13": {"success": true, "steps": 2, "score": 870, "time": 15.1, "start": "Bread", "target": "Roman Empire", "diff": "easy", "path": [], "reasons": []}, "14": {"success": false, "steps": 2, "score": 0, "time": 0, "start": "Tornado", "target": "Marie Curie", "diff": "hard", "path": [], "reasons": []}, "15": {"success": true, "steps": 3, "score": 828, "time": 11.3, "start": "Chess", "target": "Cold War", "diff": "medium", "path": [], "reasons": []}, "16": {"success": true, "steps": 6, "score": 642, "time": 29.0, "start": "Honey", "target": "Karl Marx", "diff": "hard", "path": [], "reasons": []}, "17": {"success": false, "steps": 12, "score": 0, "time": 0, "start": "Dolphin", "target": "Industrial Revolution", "diff": "medium", "path": [], "reasons": []}, "18": {"success": false, "steps": 8, "score": 0, "time": 0, "start": "Tea", "target": "Napoleon Bonaparte", "diff": "medium", "path": [], "reasons": []}, "19": {"success": true, "steps": 8, "score": 534, "time": 33.1, "start": "Mountain", "target": "DNA", "diff": "hard", "path": [], "reasons": []}, "20": {"success": true, "steps": 1, "score": 947, "time": 1.7, "start": "Cricket (sport)", "target": "British Empire", "diff": "easy", "path": [], "reasons": []}}, "rank": 19}, {"model_id": "gemini/gemini-2.5-flash-lite", "name": "Gemini 2.5 Flash Lite", "provider": "gemini", "tier": "Lite", "release_date": "2025-04-17", "wins": 10, "n": 20, "win_rate": 50.0, "avg_score": 336.9, "avg_steps": 12.2, "avg_time": 26.7, "by_diff": {"easy": {"w": 3, "n": 4, "rate": 75}, "medium": {"w": 4, "n": 9, "rate": 44}, "hard": {"w": 3, "n": 7, "rate": 43}}, "tests": {"1": {"success": false, "steps": 9, "score": 0, "time": 0, "start": "Pizza", "target": "Albert Einstein", "diff": "medium", "path": [], "reasons": []}, "2": {"success": true, "steps": 2, "score": 874, "time": 13.2, "start": "Volleyball", "target": "French Revolution", "diff": "hard", "path": [], "reasons": []}, "3": {"success": false, "steps": 13, "score": 0, "time": 0, "start": "Shark", "target": "World War II", "diff": "easy", "path": [], "reasons": []}, "4": {"success": false, "steps": 9, "score": 0, "time": 0, "start": "Coffee", "target": "Isaac Newton", "diff": "medium", "path": [], "reasons": []}, "5": {"success": false, "steps": 1, "score": 0, "time": 0, "start": "Bicycle", "target": "Ancient Rome", "diff": "hard", "path": [], "reasons": []}, "6": {"success": true, "steps": 6, "score": 511, "time": 94.9, "start": "Chocolate", "target": "Charles Darwin", "diff": "medium", "path": [], "reasons": []}, "7": {"success": true, "steps": 11, "score": 257, "time": 96.8, "start": "Soccer", "target": "Quantum mechanics", "diff": "hard", "path": [], "reasons": []}, "8": {"success": true, "steps": 3, "score": 750, "time": 50.2, "start": "Penguin", "target": "United States", "diff": "easy", "path": [], "reasons": []}, "9": {"success": true, "steps": 1, "score": 916, "time": 17.1, "start": "Guitar", "target": "Renaissance", "diff": "medium", "path": [], "reasons": []}, "10": {"success": false, "steps": 4, "score": 0, "time": 0, "start": "Sushi", "target": "Genghis Khan", "diff": "hard", "path": [], "reasons": []}, "11": {"success": false, "steps": 4, "score": 0, "time": 0, "start": "Elephant", "target": "Democracy", "diff": "medium", "path": [], "reasons": []}, "12": {"success": true, "steps": 8, "score": 436, "time": 82.4, "start": "Basketball", "target": "Space exploration", "diff": "medium", "path": [], "reasons": []}, "13": {"success": true, "steps": 2, "score": 892, "time": 4.2, "start": "Bread", "target": "Roman Empire", "diff": "easy", "path": [], "reasons": []}, "14": {"success": false, "steps": 0, "score": 0, "time": 0, "start": "Tornado", "target": "Marie Curie", "diff": "hard", "path": [], "reasons": []}, "15": {"success": true, "steps": 3, "score": 741, "time": 54.7, "start": "Chess", "target": "Cold War", "diff": "medium", "path": [], "reasons": []}, "16": {"success": false, "steps": 8, "score": 0, "time": 0, "start": "Honey", "target": "Karl Marx", "diff": "hard", "path": [], "reasons": []}, "17": {"success": false, "steps": 4, "score": 0, "time": 0, "start": "Dolphin", "target": "Industrial Revolution", "diff": "medium", "path": [], "reasons": []}, "18": {"success": false, "steps": 6, "score": 0, "time": 0, "start": "Tea", "target": "Napoleon Bonaparte", "diff": "medium", "path": [], "reasons": []}, "19": {"success": true, "steps": 7, "score": 414, "time": 118.3, "start": "Mountain", "target": "DNA", "diff": "hard", "path": [], "reasons": []}, "20": {"success": true, "steps": 1, "score": 948, "time": 1.3, "start": "Cricket (sport)", "target": "British Empire", "diff": "easy", "path": [], "reasons": []}}, "rank": 20}, {"model_id": "openai/gpt-4.1-nano", "name": "GPT-4.1 Nano", "provider": "openai", "tier": "Nano", "release_date": "2025-04-14", "wins": 5, "n": 20, "win_rate": 25.0, "avg_score": 221.2, "avg_steps": 15.5, "avg_time": 6.3, "by_diff": {"easy": {"w": 3, "n": 4, "rate": 75}, "medium": {"w": 1, "n": 9, "rate": 11}, "hard": {"w": 1, "n": 7, "rate": 14}}, "tests": {"1": {"success": false, "steps": 1, "score": 0, "time": 0, "start": "Pizza", "target": "Albert Einstein", "diff": "medium", "path": [], "reasons": []}, "2": {"success": true, "steps": 2, "score": 887, "time": 6.5, "start": "Volleyball", "target": "French Revolution", "diff": "hard", "path": [], "reasons": []}, "3": {"success": false, "steps": 3, "score": 0, "time": 0, "start": "Shark", "target": "World War II", "diff": "easy", "path": [], "reasons": []}, "4": {"success": false, "steps": 3, "score": 0, "time": 0, "start": "Coffee", "target": "Isaac Newton", "diff": "medium", "path": [], "reasons": []}, "5": {"success": false, "steps": 1, "score": 0, "time": 0, "start": "Bicycle", "target": "Ancient Rome", "diff": "hard", "path": [], "reasons": []}, "6": {"success": false, "steps": 7, "score": 0, "time": 0, "start": "Chocolate", "target": "Charles Darwin", "diff": "medium", "path": [], "reasons": []}, "7": {"success": false, "steps": 3, "score": 0, "time": 0, "start": "Soccer", "target": "Quantum mechanics", "diff": "hard", "path": [], "reasons": []}, "8": {"success": true, "steps": 4, "score": 761, "time": 19.9, "start": "Penguin", "target": "United States", "diff": "easy", "path": [], "reasons": []}, "9": {"success": true, "steps": 1, "score": 941, "time": 4.6, "start": "Guitar", "target": "Renaissance", "diff": "medium", "path": [], "reasons": []}, "10": {"success": false, "steps": 20, "score": 0, "time": 86.3, "start": "Sushi", "target": "Genghis Khan", "diff": "hard", "path": [], "reasons": []}, "11": {"success": false, "steps": 5, "score": 0, "time": 0, "start": "Elephant", "target": "Democracy", "diff": "medium", "path": [], "reasons": []}, "12": {"success": false, "steps": 4, "score": 0, "time": 0, "start": "Basketball", "target": "Space exploration", "diff": "medium", "path": [], "reasons": []}, "13": {"success": true, "steps": 2, "score": 888, "time": 6.3, "start": "Bread", "target": "Roman Empire", "diff": "easy", "path": [], "reasons": []}, "14": {"success": false, "steps": 3, "score": 0, "time": 0, "start": "Tornado", "target": "Marie Curie", "diff": "hard", "path": [], "reasons": []}, "15": {"success": false, "steps": 2, "score": 0, "time": 0, "start": "Chess", "target": "Cold War", "diff": "medium", "path": [], "reasons": []}, "16": {"success": false, "steps": 11, "score": 0, "time": 0, "start": "Honey", "target": "Karl Marx", "diff": "hard", "path": [], "reasons": []}, "17": {"success": false, "steps": 3, "score": 0, "time": 0, "start": "Dolphin", "target": "Industrial Revolution", "diff": "medium", "path": [], "reasons": []}, "18": {"success": false, "steps": 4, "score": 0, "time": 0, "start": "Tea", "target": "Napoleon Bonaparte", "diff": "medium", "path": [], "reasons": []}, "19": {"success": false, "steps": 4, "score": 0, "time": 0, "start": "Mountain", "target": "DNA", "diff": "hard", "path": [], "reasons": []}, "20": {"success": true, "steps": 1, "score": 947, "time": 1.8, "start": "Cricket (sport)", "target": "British Empire", "diff": "easy", "path": [], "reasons": []}}, "rank": 21}], "tests": [{"id": 1, "start": "Pizza", "target": "Albert Einstein", "difficulty": "medium"}, {"id": 2, "start": "Volleyball", "target": "French Revolution", "difficulty": "hard"}, {"id": 3, "start": "Shark", "target": "World War II", "difficulty": "easy"}, {"id": 4, "start": "Coffee", "target": "Isaac Newton", "difficulty": "medium"}, {"id": 5, "start": "Bicycle", "target": "Ancient Rome", "difficulty": "hard"}, {"id": 6, "start": "Chocolate", "target": "Charles Darwin", "difficulty": "medium"}, {"id": 7, "start": "Soccer", "target": "Quantum mechanics", "difficulty": "hard"}, {"id": 8, "start": "Penguin", "target": "United States", "difficulty": "easy"}, {"id": 9, "start": "Guitar", "target": "Renaissance", "difficulty": "medium"}, {"id": 10, "start": "Sushi", "target": "Genghis Khan", "difficulty": "hard"}, {"id": 11, "start": "Elephant", "target": "Democracy", "difficulty": "medium"}, {"id": 12, "start": "Basketball", "target": "Space exploration", "difficulty": "medium"}, {"id": 13, "start": "Bread", "target": "Roman Empire", "difficulty": "easy"}, {"id": 14, "start": "Tornado", "target": "Marie Curie", "difficulty": "hard"}, {"id": 15, "start": "Chess", "target": "Cold War", "difficulty": "medium"}, {"id": 16, "start": "Honey", "target": "Karl Marx", "difficulty": "hard"}, {"id": 17, "start": "Dolphin", "target": "Industrial Revolution", "difficulty": "medium"}, {"id": 18, "start": "Tea", "target": "Napoleon Bonaparte", "difficulty": "medium"}, {"id": 19, "start": "Mountain", "target": "DNA", "difficulty": "hard"}, {"id": 20, "start": "Cricket (sport)", "target": "British Empire", "difficulty": "easy"}], "generated": "2026-05-05 00:52"};
+
+// ── Metric definitions shown in info tooltips ──────────────
+const METRIC_DEFS = {
+  win_rate: {
+    label: 'Win Rate',
+    desc: `Percentage of the 20 WikiRace tests where the model successfully reached the target Wikipedia article within the 20-step limit.<br><br><b>100%</b> = 20/20 tests won. Higher is always better.`
+  },
+  avg_score: {
+    label: 'Average Score',
+    desc: `Points earned per test run. Formula:<br><b>max(0, 1000 &minus; steps&times;50 &minus; seconds&times;2)</b><br><br>Only successful runs earn points. Rewards both efficiency (fewer clicks) and speed (less time). <b>Max = 1000</b> for an instant 0-step win.`
+  },
+  avg_steps: {
+    label: 'Average Steps',
+    desc: `Average Wikipedia page clicks per test. Failed tests count as <b>20 steps</b> (the max), so this penalises failures &mdash; not just slow wins.<br><br>Lower is always better: reflects both efficiency <em>and</em> reliability.`
+  },
+  avg_time: {
+    label: 'Average Time',
+    desc: `Average total seconds per test run. Includes a 1.2s delay between each step (Wikipedia rate limiting) plus model API latency.<br><br>Directly affects the score: fewer seconds = higher score for the same number of steps.`
+  },
+  difficulty: {
+    label: 'Difficulty Breakdown',
+    desc: `Win rate split by test difficulty tier:<br><br><b style="color:#22c55e">Easy (4 tests)</b> &mdash; Target reachable in 1&ndash;3 obvious clicks<br><b style="color:#f59e0b">Medium (9 tests)</b> &mdash; Needs multi-hop topic reasoning<br><b style="color:#ef4444">Hard (7 tests)</b> &mdash; Requires creative lateral thinking`
+  },
+  release_date: {
+    label: 'Release Date',
+    desc: `Approximate public release date of the model. Use the Timeline chart to see if newer models outperform older ones on this benchmark.`
+  },
+  explorer: {
+    label: 'Model Performance Explorer',
+    desc: `Interactive bubble chart. Use the controls below to change what each axis and bubble size represents.<br><br>Try: <b>X = Release Date, Y = Win Rate</b> to see the trend over time, or <b>X = Avg Steps, Y = Avg Score</b> to compare efficiency.`
+  },
+  xaxis: {
+    label: 'X Axis',
+    desc: `Metric shown on the horizontal axis. Choose <b>Release Date</b> to see how performance trends over time, or pick any other metric to compare models across two dimensions.`
+  },
+  yaxis: {
+    label: 'Y Axis',
+    desc: `Metric shown on the vertical axis. <b>Win Rate</b> is the primary performance indicator. <b>Avg Score</b> shows efficiency among winners.`
+  },
+  bubble_size: {
+    label: 'Bubble Size',
+    desc: `What controls the size of each bubble. Larger = higher value.<br><br><b>Avg Score</b> (default) &mdash; shows score magnitude<br><b>Win Rate</b> &mdash; emphasises top performers<br><b>Avg Steps</b> &mdash; inverted: fewer steps = bigger bubble<br><b>Fixed</b> &mdash; all equal size for a clean scatter plot`
+  },
+  color_by: {
+    label: 'Color By',
+    desc: `What each bubble's color represents:<br><br><b>Provider</b> &mdash; OpenAI, Gemini, Anthropic, xAI<br><b>Win Rate</b> &mdash; green = high, red = low<br><b>Model Tier</b> &mdash; Flagship, Pro, Flash, Mini, etc.`
+  },
+};
+
+const PROV_COLOR = {
+  openai:    '#10b981',
+  gemini:    '#60a5fa',
+  anthropic: '#fb923c',
+  xai:       '#a78bfa',
+};
+
+const TIER_COLORS = {
+  Flagship:'#fbbf24', Pro:'#fbbf24', Opus:'#fbbf24', Sonnet:'#e879f9',
+  Flash:'#60a5fa', Mini:'#94a3b8', Lite:'#64748b', Nano:'#475569',
+  Haiku:'#fb923c', 'Grok 3':'#a78bfa', 'Grok 2':'#7c3aed',
+};
+
+// ── Tooltip system ─────────────────────────────────────────
+const TT = document.getElementById('tooltip');
+let _ttTimeout = null;
+
+function showTooltip(e, html) {
+  clearTimeout(_ttTimeout);
+  TT.innerHTML = html;
+  TT.style.opacity = '1';
+  placeTooltip(e);
+}
+function placeTooltip(e) {
+  const x = Math.min(e.clientX + 16, window.innerWidth - 320);
+  const y = Math.min(e.clientY + 10, window.innerHeight - 220);
+  TT.style.left = x + 'px';
+  TT.style.top  = y + 'px';
+}
+function hideTooltip() {
+  _ttTimeout = setTimeout(() => { TT.style.opacity = '0'; }, 80);
+}
+
+function initInfoIcons() {
+  document.querySelectorAll('.info-icon[data-metric]').forEach(el => {
+    el.addEventListener('mouseenter', e => {
+      const def = METRIC_DEFS[el.dataset.metric];
+      if (!def) return;
+      showTooltip(e, `<b>${def.label}</b><br><br>${def.desc}`);
+    });
+    el.addEventListener('mousemove', placeTooltip);
+    el.addEventListener('mouseleave', hideTooltip);
+    el.addEventListener('click', e => e.stopPropagation());
+  });
+}
+
+// ── Tabs ───────────────────────────────────────────────────
+let currentFilter = 'all';
+let currentSort   = 'win_rate';
+
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+  if (id === 'charts' && !window._chartsReady) initCharts();
+  if (id === 'matrix' && !window._matrixReady) renderMatrix();
+  // Re-init info icons after chart tab renders
+  if (id === 'charts') setTimeout(initInfoIcons, 50);
+}
+
+// ── Leaderboard ────────────────────────────────────────────
+function filteredSorted() {
+  let ms = [...DATA.models];
+  if (currentFilter !== 'all') ms = ms.filter(m => m.provider === currentFilter);
+  if (currentSort === 'win_rate')  ms.sort((a,b) => b.win_rate - a.win_rate || b.avg_score - a.avg_score);
+  if (currentSort === 'avg_score') ms.sort((a,b) => b.avg_score - a.avg_score);
+  if (currentSort === 'avg_steps') ms.sort((a,b) => a.avg_steps - b.avg_steps);
+  if (currentSort === 'avg_time')  ms.sort((a,b) => a.avg_time - b.avg_time);
+  return ms;
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  renderLeaderboard();
+}
+
+const SORT_DIR = {win_rate:'↓', avg_score:'↓', avg_steps:'↑', avg_time:'↑'};
+
+function setSort(s) {
+  currentSort = s;
+  document.querySelectorAll('th[data-sort]').forEach(th => {
+    const active = th.dataset.sort === s;
+    th.classList.toggle('th-sort-active', active);
+    const arrow = th.querySelector('.sort-arrow');
+    if (arrow) arrow.textContent = active ? SORT_DIR[s] : '';
+  });
+  renderLeaderboard();
+}
+
+function winColor(rate) {
+  if (rate >= 95) return '#10b981';
+  if (rate >= 85) return '#34d399';
+  if (rate >= 70) return '#60a5fa';
+  if (rate >= 50) return '#f59e0b';
+  if (rate >= 25) return '#f97316';
+  return '#ef4444';
+}
+
+function getScoreTip(steps, time, score) {
+  const sd = steps * 50, td = Math.round(time * 2);
+  return `<b>Score breakdown</b><br>1000 &minus; (${steps} steps &times; 50) &minus; (${time}s &times; 2)<br>= 1000 &minus; ${sd} &minus; ${td} = <b>${score}</b>`;
+}
+
+function renderLeaderboard() {
+  const ms   = filteredSorted();
+  const body = document.getElementById('lb-body');
+  body.innerHTML = '';
+
+  ms.forEach((m, i) => {
+    const rank      = i + 1;
+    const medal     = rank === 1 ? '&#127942;' : rank === 2 ? '&#129352;' : rank === 3 ? '&#129353;' : '';
+    const wColor    = winColor(m.win_rate);
+    const goldStyle = rank === 1 ? 'background:linear-gradient(90deg,rgba(251,191,36,.06),transparent)' : '';
+    const bd        = m.by_diff;
+    const rowId     = 'row-' + m.model_id.replace(/[^a-z0-9]/gi, '-');
+
+    const diffHtml = `
+      <div class="diff-row"><div class="diff-dot diff-easy"></div><span style="color:#22c55e;font-weight:600">${bd.easy.rate}%</span></div>
+      <div class="diff-row"><div class="diff-dot diff-med"></div><span style="color:#f59e0b;font-weight:600">${bd.medium.rate}%</span></div>
+      <div class="diff-row"><div class="diff-dot diff-hard"></div><span style="color:#ef4444;font-weight:600">${bd.hard.rate}%</span></div>
+    `;
+
+    body.insertAdjacentHTML('beforeend', `
+      <tr class="model-row" id="${rowId}" style="${goldStyle}" onclick="toggleExpand('${m.model_id}')">
+        <td class="rank-cell">${medal ? `<span class="medal">${medal}</span>` : `<span class="rank-num">${rank}</span>`}</td>
+        <td>
+          <div class="model-name">${m.name}</div>
+          <div class="model-meta">
+            <span class="tier-badge">${m.tier}</span>
+            <span style="font-size:10px;color:var(--muted)">${m.release_date}</span>
+          </div>
+        </td>
+        <td><span class="provider-badge pv-${m.provider}">${m.provider}</span></td>
+        <td>
+          <div class="win-bar-wrap">
+            <div class="win-bar-bg"><div class="win-bar-fill" style="width:${m.win_rate}%;background:${wColor}"></div></div>
+            <div class="win-pct" style="color:${wColor}">${m.win_rate}%</div>
+          </div>
+          <div class="win-frac">${m.wins}/${m.n} tests</div>
+        </td>
+        <td class="r"><span class="score-val" style="cursor:help" onmouseenter="showTooltip(event,METRIC_DEFS.avg_score.desc)" onmousemove="placeTooltip(event)" onmouseleave="hideTooltip()">${m.avg_score}</span></td>
+        <td class="r"><span class="steps-val" style="cursor:help" onmouseenter="showTooltip(event,METRIC_DEFS.avg_steps.desc)" onmousemove="placeTooltip(event)" onmouseleave="hideTooltip()">${m.avg_steps}</span></td>
+        <td class="r" style="color:var(--muted);cursor:help" onmouseenter="showTooltip(event,METRIC_DEFS.avg_time.desc)" onmousemove="placeTooltip(event)" onmouseleave="hideTooltip()">${m.avg_time}s</td>
+        <td><div class="diff-mini">${diffHtml}</div></td>
+        <td><button class="expand-btn" id="btn-${rowId}" onclick="event.stopPropagation();toggleExpand('${m.model_id}')">&#9660;</button></td>
+      </tr>
+      <tr class="detail-row" id="det-${rowId}">
+        <td colspan="9" style="padding:0">
+          <div class="detail-inner">
+            <div class="detail-header">${m.name} &mdash; all 20 test results</div>
+            <div class="test-grid">${buildTestCards(m)}</div>
+          </div>
+        </td>
+      </tr>
+    `);
+  });
+}
+
+function buildTestCards(m) {
+  return DATA.tests.map(t => {
+    const r = m.tests[String(t.id)];
+    if (!r) return '';
+    const ok       = r.success;
+    const icon     = ok ? '&#9989;' : '&#10060;';
+    const stepsStr = ok ? `${r.steps} step${r.steps !== 1 ? 's' : ''}` : 'failed';
+    const scoreStr = ok ? `score&nbsp;<b style="cursor:help" onmouseenter="showTooltip(event,getScoreTip(${r.steps},${r.time},${r.score}))" onmousemove="placeTooltip(event)" onmouseleave="hideTooltip()">${r.score}</b>` : '';
+    const timeStr  = r.time ? `${r.time}s` : '';
+    return `
+      <div class="test-card ${ok ? 'pass' : 'fail'}">
+        <div class="tc-head">
+          <span class="tc-icon">${icon}</span>
+          <span class="tc-diff ${r.diff}">${r.diff}</span>
+        </div>
+        <div class="tc-route">
+          <strong>${t.start}</strong>
+          <span> &#8594; </span>
+          <strong>${t.target}</strong>
+        </div>
+        <div class="tc-stats">
+          <span><b>${stepsStr}</b></span>
+          ${scoreStr ? `<span>${scoreStr}</span>` : ''}
+          ${timeStr  ? `<span>${timeStr}</span>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function toggleExpand(modelId) {
+  const safe   = 'row-' + modelId.replace(/[^a-z0-9]/gi, '-');
+  const detRow = document.getElementById('det-' + safe);
+  const modRow = document.getElementById(safe);
+  const btn    = document.getElementById('btn-' + safe);
+  if (!detRow) return;
+  const open = detRow.classList.toggle('open');
+  modRow.classList.toggle('expanded', open);
+  if (btn) btn.innerHTML = open ? '&#9650;' : '&#9660;';
+}
+
+// ── Highlights ─────────────────────────────────────────────
+function renderHighlights() {
+  const ms      = DATA.models;
+  const best    = ms[0];
+  const bestLite = ms.filter(m => /lite|mini|nano|haiku/i.test(m.tier)).sort((a,b) => b.win_rate - a.win_rate)[0];
+  const topRate = ms[0].win_rate;
+  const mostEff = ms.filter(m => m.win_rate >= topRate - 5).sort((a,b) => b.avg_score - a.avg_score)[0];
+  const worst   = [...ms].sort((a,b) => a.win_rate - b.win_rate)[0];
+
+  const cards = [
+    { cls:'gold',      icon:'&#127942;', label:'Overall Winner',    name:best.name,        sub:`${best.wins}/${best.n} wins &bull; ${best.win_rate}% win rate` },
+    { cls:'surprise',  icon:'&#9889;',   label:'Best Compact Model', name:bestLite?.name||'—', sub:bestLite?`${bestLite.win_rate}% win rate &bull; ${bestLite.tier} tier`:'' },
+    { cls:'efficient', icon:'&#128293;', label:'Highest Avg Score',  name:mostEff.name,     sub:`${mostEff.avg_score} avg score &bull; ${mostEff.avg_steps} avg steps` },
+    { cls:'warn',      icon:'&#128560;', label:'Underperformer',     name:worst.name,       sub:`${worst.wins}/${worst.n} wins &bull; ${worst.win_rate}% win rate` },
+  ];
+
+  document.getElementById('highlights').innerHTML = cards.map(c => `
+    <div class="hl-card ${c.cls}">
+      <div class="hl-icon">${c.icon}</div>
+      <div class="hl-label">${c.label}</div>
+      <div class="hl-name">${c.name}</div>
+      <div class="hl-sub">${c.sub}</div>
+    </div>`).join('');
+}
+
+// ── Timeline Chart (interactive) ───────────────────────────
+let _tlChart = null;
+
+function getVal(m, key) {
+  if (key === 'release_date') return new Date(m.release_date).getTime();
+  return m[key] ?? 0;
+}
+function axisLabel(key) {
+  return { release_date:'Release Date', win_rate:'Win Rate (%)', avg_score:'Avg Score',
+           avg_steps:'Avg Steps', avg_time:'Avg Time (s)' }[key] || key;
+}
+function rateColor(r) {
+  return r>=95?'#10b981':r>=85?'#34d399':r>=70?'#60a5fa':r>=50?'#f59e0b':r>=25?'#f97316':'#ef4444';
+}
+
+function rebuildTimeline() {
+  const xKey  = document.getElementById('tl-x').value;
+  const yKey  = document.getElementById('tl-y').value;
+  const rKey  = document.getElementById('tl-r').value;
+  const cMode = document.getElementById('tl-c').value;
+
+  if (_tlChart) { _tlChart.destroy(); _tlChart = null; }
+
+  // Group models by color dimension
+  const groups = {};
+  DATA.models.forEach(m => {
+    let gKey, color;
+    if (cMode === 'provider') {
+      gKey  = m.provider.charAt(0).toUpperCase() + m.provider.slice(1);
+      color = PROV_COLOR[m.provider] || '#fff';
+    } else if (cMode === 'win_rate') {
+      gKey  = m.win_rate >= 85 ? 'Top tier (85%+)' : m.win_rate >= 50 ? 'Mid tier (50-84%)' : 'Low tier (<50%)';
+      color = rateColor(m.win_rate);
+    } else {
+      gKey  = m.tier || 'Other';
+      color = TIER_COLORS[m.tier] || '#64748b';
+    }
+    if (!groups[gKey]) groups[gKey] = { color, pts: [] };
+
+    let r;
+    if (rKey === 'fixed') r = 10;
+    else if (rKey === 'avg_steps') r = Math.max(5, (21 - m.avg_steps) * 1.2); // invert: fewer steps = bigger
+    else r = Math.max(5, Math.sqrt(getVal(m, rKey)) * (rKey === 'win_rate' ? 0.65 : 0.8));
+
+    groups[gKey].pts.push({
+      x: getVal(m, xKey),
+      y: getVal(m, yKey),
+      r,
+      _m: m,
+    });
+  });
+
+  const datasets = Object.entries(groups).map(([label, g]) => ({
+    label,
+    data: g.pts,
+    backgroundColor: g.color + 'bb',
+    borderColor: g.color,
+    borderWidth: 1.5,
+  }));
+
+  const isTimeX = xKey === 'release_date';
+  const isTimeY = yKey === 'release_date';
+  const yIsPct  = yKey === 'win_rate';
+
+  _tlChart = new Chart(document.getElementById('timeline-chart'), {
+    type: 'bubble',
+    data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#94a3b8', font: { size: 12 }, padding: 16 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const m = ctx.raw._m;
+              const lines = [`${m.name}  (${m.tier})`];
+              lines.push(`Released: ${m.release_date}`);
+              lines.push(`Win Rate: ${m.win_rate}%  (${m.wins}/${m.n})`);
+              lines.push(`Avg Score: ${m.avg_score}`);
+              lines.push(`Avg Steps: ${m.avg_steps}`);
+              if (xKey !== 'release_date' && xKey !== 'win_rate') lines.push(`${axisLabel(xKey)}: ${ctx.raw.x}`);
+              if (yKey !== 'release_date' && yKey !== 'win_rate') lines.push(`${axisLabel(yKey)}: ${ctx.raw.y}`);
+              return lines;
+            }
+          }
+        }
+      },
+      scales: {
+        x: isTimeX ? {
+          type: 'time',
+          time: { unit: 'month', displayFormats: { month: 'MMM yy' } },
+          ticks: { color: '#64748b', maxTicksLimit: 10 },
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          title: { display: true, text: 'Release Date', color: '#64748b' },
+        } : {
+          type: 'linear',
+          ticks: { color: '#64748b', callback: v => xKey === 'win_rate' ? v + '%' : v },
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          title: { display: true, text: axisLabel(xKey), color: '#64748b' },
+        },
+        y: {
+          type: isTimeY ? 'time' : 'linear',
+          ticks: { color: '#64748b', callback: v => yIsPct ? v + '%' : v },
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          title: { display: true, text: axisLabel(yKey), color: '#64748b' },
+        }
+      }
+    }
+  });
+}
+
+// ── Static charts ──────────────────────────────────────────
+function initCharts() {
+  window._chartsReady = true;
+
+  rebuildTimeline();
+
+  // Win rate bar
+  const sorted = [...DATA.models].sort((a,b) => b.win_rate - a.win_rate);
+  new Chart(document.getElementById('winrate-chart'), {
+    type: 'bar',
+    data: {
+      labels: sorted.map(m => m.name),
+      datasets: [{
+        data: sorted.map(m => m.win_rate),
+        backgroundColor: sorted.map(m => PROV_COLOR[m.provider] + '99'),
+        borderColor:     sorted.map(m => PROV_COLOR[m.provider]),
+        borderWidth: 1, borderRadius: 4,
+      }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const m = sorted[ctx.dataIndex];
+              return [`${ctx.raw}% win rate`, `${m.wins}/${m.n} tests`, `Avg score: ${m.avg_score}`];
+            }
+          }
+        }
+      },
+      scales: {
+        x: { max: 108, ticks: { color: '#64748b', callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { ticks: { color: '#94a3b8', font: { size: 11 } }, grid: { display: false } }
+      }
+    }
+  });
+
+  // Difficulty breakdown
+  const top12 = [...DATA.models].sort((a,b) => b.win_rate - a.win_rate).slice(0, 12);
+  new Chart(document.getElementById('diff-chart'), {
+    type: 'bar',
+    data: {
+      labels: top12.map(m => m.name),
+      datasets: [
+        { label:'Easy',   data:top12.map(m=>m.by_diff.easy.rate),   backgroundColor:'#22c55e99',borderColor:'#22c55e',borderWidth:1,borderRadius:3 },
+        { label:'Medium', data:top12.map(m=>m.by_diff.medium.rate), backgroundColor:'#f59e0b99',borderColor:'#f59e0b',borderWidth:1,borderRadius:3 },
+        { label:'Hard',   data:top12.map(m=>m.by_diff.hard.rate),   backgroundColor:'#ef444499',borderColor:'#ef4444',borderWidth:1,borderRadius:3 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color:'#94a3b8', font:{ size:12 }, padding:12 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const m = top12[ctx.dataIndex];
+              const d = ctx.dataset.label.toLowerCase();
+              const bd = m.by_diff[d];
+              return `${ctx.dataset.label}: ${ctx.raw}%  (${bd.w}/${bd.n})`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks:{ color:'#64748b',font:{size:10},maxRotation:35 }, grid:{ color:'rgba(255,255,255,0.04)' } },
+        y: { max:110, ticks:{ color:'#64748b', callback:v=>v+'%' }, grid:{ color:'rgba(255,255,255,0.05)' } }
+      }
+    }
+  });
+}
+
+// ── Test Matrix ────────────────────────────────────────────
+function stepClass(steps, success) {
+  if (!success) return steps === 0 ? 'fail fail0' : 'fail';
+  if (steps <= 2)  return 'pass pass4';
+  if (steps <= 4)  return 'pass pass3';
+  if (steps <= 7)  return 'pass pass2';
+  if (steps <= 11) return 'pass pass1';
+  return 'pass pass0';
+}
+
+function renderMatrix() {
+  window._matrixReady = true;
+  const models = [...DATA.models].sort((a,b) => a.rank - b.rank);
+
+  let html = '<table class="matrix-table"><thead><tr><th></th>';
+  DATA.tests.forEach(t => {
+    const dc = `diff-${t.difficulty}-hdr`;
+    html += `<th class="mx-header ${dc}" title="${t.start} -> ${t.target} [${t.difficulty}]"><div>#${t.id}</div><div>${t.start.slice(0,7)}</div></th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  models.forEach(m => {
+    const rm = m.rank <= 3 ? ['&#127942;','&#129352;','&#129353;'][m.rank-1] : '';
+    html += `<tr><td class="mx-model">
+      <span style="color:${PROV_COLOR[m.provider]};margin-right:4px">&#9679;</span>
+      ${rm ? rm + ' ' : ''}<b>${m.name}</b>
+      <span style="color:var(--muted);font-size:10px;margin-left:6px">${m.win_rate}%</span>
+    </td>`;
+    DATA.tests.forEach(t => {
+      const r   = m.tests[String(t.id)];
+      const cls = r ? stepClass(r.steps, r.success) : 'fail fail0';
+      const lbl = r ? r.steps : '';
+      const tip = r && r.success
+        ? `<b>${m.name}</b><br>${t.start} &rarr; ${t.target}<br><span style="color:#64748b">[${t.difficulty}]</span> &bull; <b>${r.steps}</b> steps &bull; score <b>${r.score}</b> &bull; ${r.time}s`
+        : `<b>${m.name}</b><br>${t.start} &rarr; ${t.target}<br><span style="color:#64748b">[${t.difficulty}]</span> &bull; <span style="color:#ef4444">FAILED</span> at step ${r ? r.steps : 0}`;
+      html += `<td><div class="mx-cell ${cls}" data-tip="${tip.replace(/"/g,'&quot;')}" data-model="${m.model_id}" data-test="${t.id}">${lbl}</div></td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('matrix-inner').innerHTML = html;
+
+  document.querySelectorAll('.mx-cell').forEach(cell => {
+    cell.addEventListener('mouseenter', e => { hideTooltip(); showTooltip(e, cell.dataset.tip); });
+    cell.addEventListener('mousemove',  placeTooltip);
+    cell.addEventListener('mouseleave', hideTooltip);
+    cell.addEventListener('click', () => { hideTooltip(); openRunSidebar(cell.dataset.model, cell.dataset.test); });
+  });
+}
+
+// ── Init ───────────────────────────────────────────────────
+renderHighlights();
+renderLeaderboard();
+initInfoIcons();
+
+requestAnimationFrame(() => {
+  document.querySelectorAll('.win-bar-fill').forEach(el => {
+    const w = el.style.width; el.style.width = '0';
+    requestAnimationFrame(() => { el.style.width = w; });
+  });
+});
+
+// ── Run Sidebar ─────────────────────────────────────────────
+function openRunSidebar(modelId, testId) {
+  const m = DATA.models.find(x => x.model_id === modelId);
+  const t = DATA.tests.find(x => String(x.id) === String(testId));
+  const r = m && m.tests[String(testId)];
+  if (!m || !t || !r) return;
+
+  const ok = r.success;
+  const diffColor = {easy:'#22c55e', medium:'#f59e0b', hard:'#ef4444'}[r.diff] || '#64748b';
+
+  const statsHtml = [
+    `<div class="sb-stat"><div class="sb-stat-val" style="color:${ok?'#10b981':'#ef4444'}">${ok?'WIN':'FAIL'}</div><div class="sb-stat-lbl">Result</div></div>`,
+    `<div class="sb-stat"><div class="sb-stat-val">${r.steps}</div><div class="sb-stat-lbl">Steps</div></div>`,
+    ok ? `<div class="sb-stat"><div class="sb-stat-val" style="color:#f59e0b">${r.score}</div><div class="sb-stat-lbl">Score</div></div>` : '',
+    r.time ? `<div class="sb-stat"><div class="sb-stat-val">${r.time}s</div><div class="sb-stat-lbl">Time</div></div>` : '',
+    `<div class="sb-stat"><div class="sb-stat-val" style="color:${diffColor};font-size:13px">${r.diff}</div><div class="sb-stat-lbl">Difficulty</div></div>`,
+  ].join('');
+
+  let pathHtml = '';
+  if (r.path && r.path.length > 0) {
+    const steps = r.path.map((p, i) => {
+      const isStart  = i === 0;
+      const isEnd    = i === r.path.length - 1 && ok;
+      const cls      = isStart ? 'sb-start' : isEnd ? 'sb-end' : '';
+      const reason   = r.reasons && r.reasons[i] ? `<div class="sb-reason">${r.reasons[i]}</div>` : '';
+      return `<div class="sb-step"><span class="sb-step-num">${i}</span><span class="sb-step-arrow">›</span><div class="sb-step-right"><span class="sb-step-page ${cls}">${p}</span>${reason}</div></div>`;
+    }).join('');
+    pathHtml = `<div class="sb-section">Navigation path &mdash; ${r.path.length} pages</div>${steps}`;
+  } else {
+    pathHtml = `<div class="sb-nopath">Path data not recorded for this run. Re-run the benchmark to capture navigation paths.</div>`;
+  }
+
+  document.getElementById('sb-content').innerHTML = `
+    <div class="sb-model">${m.name}</div>
+    <div class="sb-route"><b>${t.start}</b> &rarr; <b>${t.target}</b></div>
+    <div class="sb-stats">${statsHtml}</div>
+    <div class="sb-section" style="margin-top:4px">Run details</div>
+    ${pathHtml}
+  `;
+  document.getElementById('run-sidebar').classList.add('open');
+  document.getElementById('sidebar-overlay').classList.add('open');
+}
+
+function closeRunSidebar() {
+  document.getElementById('run-sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeRunSidebar(); });
+</script>
+</body>
+</html>

@@ -4,6 +4,22 @@ This project is a small research-style benchmark for evaluating how AI models na
 
 Instead of measuring only question answering or static reasoning, the benchmark asks models to move through Wikipedia as a graph: start from one article, choose links step by step, and reach a target page as efficiently as possible. That makes the project part AI evaluation, part benchmark design, and part network-science experiment.
 
+## Screenshots
+
+### App
+
+![Race UI](docs/screenshots/app-race.png)
+
+![Leaderboard UI](docs/screenshots/app-leaderboard.png)
+
+![Settings UI](docs/screenshots/app-settings.png)
+
+### Report
+
+![Report overview](docs/screenshots/report-overview.png)
+
+![Report charts](docs/screenshots/report-charts.png)
+
 ## Research framing
 
 Wikipedia is treated here as a large directed network of concepts. Each article is a node, each article link is an edge, and the model acts as an agent trying to traverse that graph under partial information.
@@ -38,16 +54,19 @@ The system records:
 
 The final leaderboard aggregates those runs across a shared test set so models can be compared on the same navigation problems.
 
-## Project structure
+## Repository layout
 
-- `wiki_evaluator.py`: Flask app and core benchmark logic
-- `run_tests.py`: batch runner for the predefined benchmark set
-- `generate_leaderboard.py`: static HTML leaderboard generator
-- `smoke_test.py`: one-off regression run for a single model/test case
-- `test_sets.json`: benchmark scenarios
-- `results.json`: recorded evaluation results
-- `leaderboard.html`: generated report
-- `ai_bot.py`: earlier standalone prototype
+- `src/wiki_race/`: main package
+- `src/wiki_race/web.py`: Flask app
+- `src/wiki_race/race.py`: benchmark loop and prompt/response handling
+- `src/wiki_race/providers.py`: model provider calls
+- `src/wiki_race/storage.py`: config/results persistence
+- `src/wiki_race/reporting.py`: static leaderboard generator
+- `src/wiki_race/templates/`: web UI templates
+- `data/`: benchmark input and output data
+- `docs/`: generated report, screenshots, and archived prototype material
+- `scripts/`: secondary script entry points
+- `wiki_evaluator.py`, `run_tests.py`, `generate_leaderboard.py`, `smoke_test.py`: simple root-level commands
 
 ## How it works
 
@@ -63,23 +82,18 @@ To keep the task meaningful, the benchmark blocks obvious hub or meta pages that
 
 ## Setup
 
-Install the Python dependencies required for the providers you want to evaluate.
+Install the package and the provider libraries you want to use:
 
-Core dependencies:
+```bash
+pip install -e .
+pip install google-genai anthropic
+```
 
-- `flask`
-- `requests`
-- `beautifulsoup4`
-- `openai`
+Core dependencies are declared in `pyproject.toml`. The extra provider packages are optional unless you want to benchmark those providers.
 
-Optional provider dependencies:
+## Test it locally
 
-- `google-genai` for Gemini
-- `anthropic` for Claude
-
-Provider keys are stored in `config.json` through the web UI or loaded by the scripts at runtime.
-
-## Run the web app
+Start the Flask app:
 
 ```bash
 python wiki_evaluator.py
@@ -91,11 +105,42 @@ Then open:
 http://localhost:5050
 ```
 
+From there:
+
+1. Open the `Settings` tab.
+2. Paste one or more provider API keys.
+3. Return to the `Race` tab.
+4. Select the models you want to test.
+5. Run a benchmark.
+
+The app stores configuration in `data/config.json` and benchmark results in `data/results.json`.
+
+You can also create `data/config.json` manually before starting the app:
+
+```json
+{
+  "openai_key": "sk-...",
+  "gemini_key": "AIza...",
+  "anthropic_key": "sk-ant-...",
+  "xai_key": "xai-..."
+}
+```
+
 ## Run the benchmark suite
+
+Run the predefined benchmark set against one or more models:
 
 ```bash
 python run_tests.py openai/gpt-4o
 python run_tests.py openai/gpt-4o gemini/gemini-3.1-flash-lite-preview
+```
+
+## Run a smoke test
+
+Run a single benchmark case and regenerate the static report:
+
+```bash
+python smoke_test.py
 ```
 
 ## Generate the report
@@ -104,10 +149,33 @@ python run_tests.py openai/gpt-4o gemini/gemini-3.1-flash-lite-preview
 python generate_leaderboard.py
 ```
 
-This writes `leaderboard.html` in the project root.
+This writes the static HTML report to:
+
+```text
+docs/leaderboard.html
+```
+
+## Deploy it yourself
+
+This project is simple to self-host as a personal Flask app on a small server or app platform such as Render, Railway, Fly.io, or a VPS.
+
+Basic deployment flow:
+
+1. Clone the repo on the server.
+2. Install the Python dependencies.
+3. Start the app with:
+
+```bash
+python wiki_evaluator.py
+```
+
+4. Expose port `5050`, or run it behind a reverse proxy such as Nginx or Caddy.
+5. Add your provider keys either through the deployed web UI or by creating `data/config.json` on the server.
+
+This setup works well for personal use, private testing, or sharing with a small trusted group.
 
 ## Notes
 
-- `results.json` is the source data for the leaderboard.
+- `data/results.json` is the source data for the leaderboard.
 - The benchmark is intentionally lightweight and exploratory rather than a formal academic evaluation suite.
-- The current codebase focuses on practical cross-model comparison, but the same setup could be extended with stronger graph metrics, difficulty calibration, or repeated-trial analysis.
+- `ai_bot.py` and `scripts/prototype_bot.py` preserve the earlier standalone prototype for reference.
