@@ -10,12 +10,6 @@ Instead of measuring only question answering or static reasoning, the benchmark 
 
 ![Race UI](docs/screenshots/app-race.png)
 
-![Leaderboard UI](docs/screenshots/app-leaderboard.png)
-
-![Settings UI](docs/screenshots/app-settings.png)
-
-### Report
-
 ![Report overview](docs/screenshots/report-overview.png)
 
 ![Report charts](docs/screenshots/report-charts.png)
