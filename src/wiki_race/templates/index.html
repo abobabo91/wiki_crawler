@@ -31,6 +31,9 @@ input:focus,select:focus{border-color:#58a6ff}
 .sel-btn.on-openai{background:#0d2a1f;border-color:#10c87f;color:#10c87f}
 .sel-btn.on-gemini{background:#0d1a3a;border-color:#4285f4;color:#4285f4}
 .sel-btn.on-anthropic{background:#3a1a0d;border-color:#e8937a;color:#e8937a}
+.sel-btn.on-xai{background:#2a1a3a;border-color:#8b5cf6;color:#8b5cf6}
+.tip-box{background:#1a2a3a;border:1px solid #30363d;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.82rem;color:#8b949e;display:flex;align-items:center;gap:8px}
+.tip-box a{color:#58a6ff;text-decoration:none}.tip-box a:hover{text-decoration:underline}
 
 /* Model grid */
 .model-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:6px}
@@ -104,11 +107,13 @@ input[type=password]{font-family:monospace;letter-spacing:.08em}
 <div class="tabs">
   <div class="tab active" onclick="showTab('race')">🏎️ Race</div>
   <div class="tab" onclick="showTab('leaderboard')">🏆 Leaderboard</div>
+  <div class="tab" onclick="showTab('benchmark')">📊 Benchmark</div>
   <div class="tab" onclick="showTab('settings')">⚙️ Settings</div>
 </div>
 
 <!-- RACE -->
 <div id="pane-race" class="pane active">
+  <div class="tip-box">💡 To race AI models, add your API keys in the <a href="javascript:showTab('settings')">Settings</a> tab first. Models with valid keys will become selectable below.</div>
   <div class="two-col">
     <div class="card">
       <h3>📍 Route</h3>
@@ -167,6 +172,24 @@ input[type=password]{font-family:monospace;letter-spacing:.08em}
   </div>
 </div>
 
+<!-- BENCHMARK -->
+<div id="pane-benchmark" class="pane">
+  <div class="card">
+    <h3>📊 Run Benchmark Suite</h3>
+    <p style="font-size:.82rem;color:#8b949e;margin-bottom:14px">Run all 20 test sets against selected models. Results are saved to the shared leaderboard.</p>
+    <div class="model-grid" id="bench-model-grid"></div>
+    <div class="flex mt">
+      <button type="button" class="btn btn-green" id="btn-bench-start" onclick="startBenchmark()">▶ Run Full Benchmark</button>
+      <button type="button" class="btn btn-red" id="btn-bench-cancel" style="display:none" onclick="cancelBenchmark()">⏹ Stop</button>
+      <span id="bench-info" style="color:#8b949e;font-size:.84rem"></span>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Results Matrix</h3>
+    <div id="matrix-body"><div class="empty">Run a benchmark or check the leaderboard for existing results.</div></div>
+  </div>
+</div>
+
 <!-- SETTINGS -->
 <div id="pane-settings" class="pane">
   <div class="card">
@@ -194,7 +217,7 @@ const GROUPS = [
   {lbl:"OpenAI",    cls:"on-openai", fn: m=>m.provider==="openai"    && m.available},
   {lbl:"Gemini",    cls:"on-gemini", fn: m=>m.provider==="gemini"    && m.available},
   {lbl:"Anthropic", cls:"on-anthropic",fn:m=>m.provider==="anthropic"&& m.available},
-  {lbl:"xAI",       cls:"on",        fn: m=>m.provider==="xai"       && m.available},
+  {lbl:"xAI",       cls:"on-xai",    fn: m=>m.provider==="xai"       && m.available},
   {lbl:"Clear all", cls:"",          fn: ()=>false},
 ];
 
@@ -205,7 +228,7 @@ async function api(path, opts){
 
 async function init(){
   [models, cfg] = await Promise.all([api("/api/models"), api("/api/config")]);
-  buildSelBar(); buildModelGrid(); buildKeyGrid(); loadPresets(); loadLB();
+  buildSelBar(); buildModelGrid(); buildKeyGrid(); loadPresets(); loadLB(); buildBenchModelGrid();
 }
 
 /* ── Selector bar ── */
@@ -213,6 +236,7 @@ function buildSelBar(){
   const bar = document.getElementById("sel-bar"); bar.innerHTML="";
   GROUPS.forEach((g,i)=>{
     const b = document.createElement("button");
+    b.type = "button";
     b.className = "sel-btn"; b.textContent = g.lbl; b.dataset.gi = i;
     b.onclick = ()=>applyGroup(i);
     bar.appendChild(b);
@@ -230,7 +254,10 @@ function applyGroup(gi){
   });
   // Highlight active group button
   document.querySelectorAll(".sel-btn").forEach((b,i)=>{
-    b.className = "sel-btn" + (i===gi && gi!==GROUPS.length-1 ? (" on "+(g.cls||"on")).trim() : "");
+    b.className = "sel-btn";
+    if(i===gi && gi!==GROUPS.length-1){
+      b.classList.add(g.cls || "on");
+    }
   });
 }
 
@@ -450,15 +477,116 @@ async function saveKeys(){
   alert("Saved! Models with valid keys are now available.");
 }
 
+/* ── Benchmark ── */
+let benchTimer=null, currentBenchId=null;
+
+function buildBenchModelGrid(){
+  const g=document.getElementById("bench-model-grid"); g.innerHTML="";
+  models.forEach(m=>{
+    const avail=m.available;
+    const el=document.createElement("label");
+    el.className="mc"+(avail?"":" off");
+    el.style.setProperty("--c",m.color);
+    el.dataset.id=m.id;
+    el.innerHTML=`<input type="checkbox" value="${m.id}" ${avail?"":"disabled"} onchange="this.closest('label').classList.toggle('on',this.checked)"><span class="dot"></span><span class="lbl">${m.name}</span>`;
+    g.appendChild(el);
+  });
+}
+
+async function startBenchmark(){
+  const mids=[...document.querySelectorAll("#bench-model-grid .mc input:checked")].map(c=>c.value);
+  if(!mids.length){alert("Select at least one model.");return;}
+  document.getElementById("btn-bench-start").disabled=true;
+  document.getElementById("btn-bench-cancel").style.display="";
+  document.getElementById("bench-info").textContent="Starting benchmark...";
+  const{bench_id,error}=await api("/api/benchmark",{method:"POST",body:JSON.stringify({models:mids})});
+  if(error){alert(error);document.getElementById("btn-bench-start").disabled=false;return;}
+  currentBenchId=bench_id;
+  benchTimer=setInterval(pollBenchmark,3000);
+}
+
+async function pollBenchmark(){
+  if(!currentBenchId)return;
+  const d=await api("/api/benchmark/"+currentBenchId);
+  if(d.error)return;
+  document.getElementById("bench-info").textContent=`${d.completed}/${d.total} completed`;
+  if(d.completed>=d.total||d.cancelled){
+    clearInterval(benchTimer);
+    document.getElementById("btn-bench-start").disabled=false;
+    document.getElementById("btn-bench-cancel").style.display="none";
+    document.getElementById("bench-info").textContent=d.cancelled?"Cancelled":`Done! ${d.completed} runs completed.`;
+    loadMatrix();
+  }
+}
+
+async function cancelBenchmark(){
+  if(currentBenchId)await api("/api/cancel_benchmark/"+currentBenchId,{method:"POST"});
+  clearInterval(benchTimer);
+  document.getElementById("btn-bench-start").disabled=false;
+  document.getElementById("btn-bench-cancel").style.display="none";
+}
+
+async function loadMatrix(){
+  const results=await api("/api/results");
+  const tests=await api("/api/test_sets");
+  const el=document.getElementById("matrix-body");
+  if(!results.length){el.innerHTML='<div class="empty">No benchmark results yet.</div>';return;}
+
+  // Build model->test_id->result map
+  const modelIds=[...new Set(results.filter(r=>r.test_id).map(r=>r.model_id))];
+  const testIds=tests.map(t=>t.id);
+  const map={};
+  for(const r of results){
+    if(!r.test_id)continue;
+    const k=r.model_id+"_"+r.test_id;
+    if(!map[k]||r.timestamp>map[k].timestamp) map[k]=r;
+  }
+
+  if(!modelIds.length){el.innerHTML='<div class="empty">No benchmark results with test IDs found. Run a benchmark first.</div>';return;}
+
+  let html='<div style="overflow-x:auto"><table><thead><tr><th>Model</th>';
+  for(const t of tests){
+    const diff={easy:"🟢",medium:"🟡",hard:"🔴"}[t.difficulty]||"";
+    html+=`<th style="font-size:.68rem;white-space:nowrap" title="${t.start} → ${t.target}">${diff}#${t.id}</th>`;
+  }
+  html+='<th>Win%</th><th>Avg</th></tr></thead><tbody>';
+
+  for(const mid of modelIds){
+    const m=models.find(x=>x.id===mid)||{name:mid,color:"#8b949e"};
+    let wins=0,total=0,scoreSum=0;
+    html+=`<tr><td style="white-space:nowrap"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${m.color};margin-right:6px"></span>${m.name}</td>`;
+    for(const tid of testIds){
+      const r=map[mid+"_"+tid];
+      if(r){
+        total++;
+        if(r.success){wins++;scoreSum+=r.score;}
+        const bg=r.success?"#1a3a1f":"#3a1a1a";
+        const fg=r.success?"#3fb950":"#f85149";
+        const txt=r.success?r.score:"✗";
+        html+=`<td style="text-align:center;background:${bg};color:${fg};font-size:.78rem;font-weight:600" title="${r.steps} steps, ${r.time}s">${txt}</td>`;
+      } else {
+        html+='<td style="text-align:center;color:#30363d">—</td>';
+      }
+    }
+    const wr=total?Math.round(wins/total*100):0;
+    const avg=total?Math.round(scoreSum/total):0;
+    html+=`<td style="font-weight:600">${wr}%</td><td style="color:#58a6ff;font-weight:600">${avg}</td></tr>`;
+  }
+  html+='</tbody></table></div>';
+  el.innerHTML=html;
+}
+
 /* ── Tabs ── */
+const TAB_NAMES=["race","leaderboard","benchmark","settings"];
 function showTab(name){
   document.querySelectorAll(".tab").forEach((t,i)=>{
-    t.classList.toggle("active",["race","leaderboard","settings"][i]===name);
+    t.classList.toggle("active",TAB_NAMES[i]===name);
   });
   document.querySelectorAll(".pane").forEach(p=>{
     p.classList.toggle("active",p.id==="pane-"+name);
   });
   if(name==="leaderboard") loadLB();
+  if(name==="benchmark"){buildBenchModelGrid();loadMatrix();}
 }
 
 init();

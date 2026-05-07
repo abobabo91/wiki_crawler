@@ -1,0 +1,22 @@
+[
+  {"id": 1, "start": "Pizza",             "target": "Albert Einstein",       "difficulty": "medium"},
+  {"id": 2, "start": "Volleyball",        "target": "French Revolution",     "difficulty": "hard"},
+  {"id": 3, "start": "Shark",             "target": "World War II",          "difficulty": "easy"},
+  {"id": 4, "start": "Coffee",            "target": "Isaac Newton",          "difficulty": "medium"},
+  {"id": 5, "start": "Bicycle",           "target": "Ancient Rome",          "difficulty": "hard"},
+  {"id": 6, "start": "Chocolate",         "target": "Charles Darwin",        "difficulty": "medium"},
+  {"id": 7, "start": "Soccer",            "target": "Quantum mechanics",     "difficulty": "hard"},
+  {"id": 8, "start": "Penguin",           "target": "United States",         "difficulty": "easy"},
+  {"id": 9, "start": "Guitar",            "target": "Renaissance",           "difficulty": "medium"},
+  {"id": 10,"start": "Sushi",             "target": "Genghis Khan",          "difficulty": "hard"},
+  {"id": 11,"start": "Elephant",          "target": "Democracy",             "difficulty": "medium"},
+  {"id": 12,"start": "Basketball",        "target": "Space exploration",     "difficulty": "medium"},
+  {"id": 13,"start": "Bread",             "target": "Roman Empire",          "difficulty": "easy"},
+  {"id": 14,"start": "Tornado",           "target": "Marie Curie",           "difficulty": "hard"},
+  {"id": 15,"start": "Chess",             "target": "Cold War",              "difficulty": "medium"},
+  {"id": 16,"start": "Honey",             "target": "Karl Marx",             "difficulty": "hard"},
+  {"id": 17,"start": "Dolphin",           "target": "Industrial Revolution", "difficulty": "medium"},
+  {"id": 18,"start": "Tea",              "target": "Napoleon Bonaparte",    "difficulty": "medium"},
+  {"id": 19,"start": "Mountain",         "target": "DNA",                   "difficulty": "hard"},
+  {"id": 20,"start": "Cricket (sport)",   "target": "British Empire",        "difficulty": "easy"}
+]

@@ -8,7 +8,8 @@ from flask import Flask, jsonify, render_template, request
 from .constants import MODELS, MODEL_MAP, PROVIDER_KEY_MAP, WIKI_BASE
 from .paths import TEMPLATES_DIR
 from .race import make_result_record, run_single_race
-from .storage import append_result, clear_results, load_config, load_results, load_test_sets, save_config
+from .storage import append_result, clear_results, load_config, load_results, load_test_sets, overwrite_results, save_config
+from .wikipedia import article_url
 
 
 def build_leaderboard_rows() -> list[dict]:
@@ -187,6 +188,71 @@ def create_app() -> Flask:
     @app.route("/api/clear_results", methods=["POST"])
     def api_clear():
         clear_results()
+        return jsonify({"ok": True})
+
+    @app.route("/api/results")
+    def api_results():
+        return jsonify(load_results())
+
+    @app.route("/api/benchmark", methods=["POST"])
+    def api_benchmark():
+        payload = request.json or {}
+        model_ids = payload.get("models", [])
+        if not model_ids:
+            return jsonify({"error": "No models selected"}), 400
+
+        config = load_config()
+        tests = load_test_sets()
+        bench_id = str(uuid.uuid4())[:8]
+
+        with runs_lock:
+            runs[bench_id] = {
+                "type": "benchmark",
+                "total": len(tests) * len(model_ids),
+                "completed": 0,
+                "results": [],
+                "cancelled": False,
+            }
+
+        def bench_worker():
+            for model_id in model_ids:
+                for test in tests:
+                    with runs_lock:
+                        if runs[bench_id].get("cancelled"):
+                            return
+                    start_url = article_url(test["start"])
+                    result = run_single_race(model_id, start_url, test["target"], config)
+                    record = make_result_record(
+                        model_id, start_url, test["target"], result,
+                        test_id=test["id"], difficulty=test.get("difficulty"),
+                    )
+                    append_result(record)
+                    with runs_lock:
+                        runs[bench_id]["completed"] += 1
+                        runs[bench_id]["results"].append(record)
+
+        thread = threading.Thread(target=bench_worker, daemon=True)
+        thread.start()
+        return jsonify({"bench_id": bench_id})
+
+    @app.route("/api/benchmark/<bench_id>")
+    def api_benchmark_status(bench_id: str):
+        with runs_lock:
+            bench = runs.get(bench_id)
+            if not bench or bench.get("type") != "benchmark":
+                return jsonify({"error": "Not found"}), 404
+            return jsonify({
+                "total": bench["total"],
+                "completed": bench["completed"],
+                "results": bench["results"],
+                "cancelled": bench.get("cancelled", False),
+            })
+
+    @app.route("/api/cancel_benchmark/<bench_id>", methods=["POST"])
+    def api_cancel_benchmark(bench_id: str):
+        with runs_lock:
+            if bench_id in runs:
+                runs[bench_id]["cancelled"] = True
         return jsonify({"ok": True})
 
     return app

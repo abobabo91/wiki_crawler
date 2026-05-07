@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WikiRace AI Benchmark</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏁</text></svg>">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<div class="header">
+  <span style="font-size:1.4rem">🏁</span>
+  <h1>WikiRace AI Benchmark</h1>
+  <span class="sub">AI models race through Wikipedia — who finds the path fastest?</span>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('race')">Race</div>
+  <div class="tab" onclick="showTab('leaderboard')">Leaderboard</div>
+  <div class="tab" onclick="showTab('settings')">Settings</div>
+</div>
+
+<!-- ── Race pane ── -->
+<div class="pane active" id="pane-race">
+  <div class="card">
+    <h3>Route</h3>
+    <div class="two-col">
+      <div><label>Start article</label><input id="inp-start" placeholder="e.g. Albert Einstein"></div>
+      <div><label>Target article</label><input id="inp-target" placeholder="e.g. Pizza"></div>
+    </div>
+    <div class="mt flex">
+      <select id="sel-preset" onchange="applyPreset()"><option value="">— Preset routes —</option></select>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Models</h3>
+    <div class="sel-bar" id="sel-bar"></div>
+    <div class="model-grid" id="model-grid"></div>
+  </div>
+
+  <div class="flex mt">
+    <button class="btn btn-green" id="btn-start" onclick="startRace()">Start Race</button>
+    <button class="btn btn-red" id="btn-cancel" style="display:none" onclick="cancelRace()">Cancel</button>
+    <span id="race-info" style="color:#8b949e;font-size:.88rem"></span>
+  </div>
+
+  <div id="race-area" style="display:none;margin-top:18px">
+    <div class="race-hdr">
+      <h2>Race</h2>
+      <span class="route-tag"><span id="ra-start"></span> → <span id="ra-target"></span></span>
+    </div>
+    <div class="lanes" id="lanes"></div>
+  </div>
+</div>
+
+<!-- ── Leaderboard pane ── -->
+<div class="pane" id="pane-leaderboard">
+  <div class="card">
+    <h3>Leaderboard</h3>
+    <div id="lb-body"><div class="empty">No results yet — run a race first!</div></div>
+    <div class="mt"><button class="btn btn-sm btn-ghost" onclick="clearResults()">Clear all results</button></div>
+  </div>
+</div>
+
+<!-- ── Settings pane ── -->
+<div class="pane" id="pane-settings">
+  <div class="card">
+    <h3>API Keys</h3>
+    <p style="font-size:.82rem;color:#8b949e;margin-bottom:14px">Keys are stored in your browser only — never sent to our servers, only to the AI provider directly.</p>
+    <div id="key-grid"></div>
+    <div class="mt"><button class="btn btn-green btn-sm" onclick="saveKeys()">Save Keys</button></div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
