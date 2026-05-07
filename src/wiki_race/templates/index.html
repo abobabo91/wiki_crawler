@@ -460,13 +460,13 @@ async function loadLB(){
   if(!data.length){el.innerHTML='<div class="empty">No results yet — run a race first!</div>';return;}
   const tr=["🥇","🥈","🥉"];
   el.innerHTML=`<table>
-    <thead><tr><th>Rank</th><th>Model</th><th>Avg Score</th><th>Avg Steps</th><th>Avg Time</th><th>Win Rate</th><th>Races</th></tr></thead>
+    <thead><tr><th>Rank</th><th>Model</th><th>Avg Steps</th><th>Win Rate</th><th>Avg Score</th><th>Avg Time</th><th>Races</th></tr></thead>
     <tbody>${data.map((d,i)=>`<tr style="cursor:pointer" onclick="showRunDetail('${d.model_id}')">
       <td class="rk ${i<3?'rk'+(i+1):''}">${tr[i]||i+1}</td>
       <td><strong>${d.model_name}</strong></td>
-      <td class="sc" style="color:#58a6ff">${d.avg_score}</td>
-      <td>${d.avg_steps}</td><td>${d.avg_time}s</td>
+      <td class="sc" style="color:#58a6ff">${d.avg_steps}</td>
       <td>${d.win_rate}%<span class="wbar" style="width:${d.win_rate}px"></span></td>
+      <td>${d.avg_score}</td><td>${d.avg_time}s</td>
       <td style="color:#8b949e">${d.runs}</td>
     </tr>`).join("")}</tbody></table>`;
 }
@@ -628,28 +628,29 @@ async function loadMatrix(){
     const diff={easy:"🟢",medium:"🟡",hard:"🔴"}[t.difficulty]||"";
     html+=`<th style="font-size:.68rem;white-space:nowrap" title="${t.start} → ${t.target}">${diff}#${t.id}</th>`;
   }
-  html+='<th>Win%</th><th>Avg</th></tr></thead><tbody>';
+  html+='<th>Win%</th><th>Avg Steps</th></tr></thead><tbody>';
 
   for(const mid of modelIds){
     const m=models.find(x=>x.id===mid)||{name:mid,color:"#8b949e"};
-    let wins=0,total=0,scoreSum=0;
+    let wins=0,total=0,stepsSum=0;
     html+=`<tr><td style="white-space:nowrap"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${m.color};margin-right:6px"></span>${m.name}</td>`;
     for(const tid of testIds){
       const r=map[mid+"_"+tid];
       if(r){
         total++;
-        if(r.success){wins++;scoreSum+=r.score;}
+        const steps=r.success?r.steps:20;
+        if(r.success){wins++;stepsSum+=steps;}else{stepsSum+=20;}
         const bg=r.success?"#1a3a1f":"#3a1a1a";
         const fg=r.success?"#3fb950":"#f85149";
-        const txt=r.success?r.score:"✗";
-        html+=`<td style="text-align:center;background:${bg};color:${fg};font-size:.78rem;font-weight:600;cursor:pointer" title="${r.steps} steps, ${r.time}s" onclick="showRunDetail('${mid}',${tid})">${txt}</td>`;
+        const txt=r.success?r.steps:"20";
+        html+=`<td style="text-align:center;background:${bg};color:${fg};font-size:.78rem;font-weight:600;cursor:pointer" title="${r.success?'✓':'✗'} ${r.steps} steps, ${r.time}s" onclick="showRunDetail('${mid}',${tid})">${txt}</td>`;
       } else {
         html+='<td style="text-align:center;color:#30363d">—</td>';
       }
     }
     const wr=total?Math.round(wins/total*100):0;
-    const avg=total?Math.round(scoreSum/total):0;
-    html+=`<td style="font-weight:600">${wr}%</td><td style="color:#58a6ff;font-weight:600">${avg}</td></tr>`;
+    const avgSteps=total?(stepsSum/total).toFixed(1):"-";
+    html+=`<td style="font-weight:600">${wr}%</td><td style="color:#58a6ff;font-weight:600">${avgSteps}</td></tr>`;
   }
   html+='</tbody></table></div>';
   el.innerHTML=html;

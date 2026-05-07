@@ -31,7 +31,7 @@ def build_leaderboard_rows() -> list[dict]:
         row["runs"] += 1
         row["wins"] += 1 if result.get("success") else 0
         row["total_score"] += result.get("score", 0)
-        row["total_steps"] += result.get("steps", 0)
+        row["total_steps"] += result.get("steps", 0) if result.get("success") else 20
         row["total_time"] += result.get("time", 0)
 
     leaderboard = []
@@ -47,7 +47,7 @@ def build_leaderboard_rows() -> list[dict]:
             }
         )
 
-    leaderboard.sort(key=lambda item: (-item["avg_score"], -item["win_rate"]))
+    leaderboard.sort(key=lambda item: (item["avg_steps"], -item["win_rate"]))
     return leaderboard
 
 
