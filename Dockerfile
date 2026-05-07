@@ -6,7 +6,10 @@ COPY pyproject.toml .
 COPY src/ src/
 COPY data/ data/
 
-RUN pip install --no-cache-dir -e . google-generativeai anthropic
+RUN pip install --no-cache-dir -e . google-generativeai anthropic google-cloud-firestore
+
+ENV GOOGLE_CLOUD_PROJECT=zeta-matrix-483109-u9
+ENV FIRESTORE_DATABASE=wikirace
 
 EXPOSE 8080
 
