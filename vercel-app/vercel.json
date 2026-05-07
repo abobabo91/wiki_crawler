@@ -1,8 +1,0 @@
-{
-  "framework": null,
-  "outputDirectory": "public",
-  "alias": ["wikirace-babo.vercel.app"],
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" }
-  ]
-}
