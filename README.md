@@ -1,5 +1,7 @@
 # WikiRace AI Benchmark
 
+**Live:** https://wiki-race-673626542594.europe-west1.run.app (Cloud Run, project `zeta-matrix-483109-u9`, region `europe-west1`, service name `wiki-race`)
+
 This project is a small research-style benchmark for evaluating how AI models navigate a real knowledge network.
 
 Instead of measuring only question answering or static reasoning, the benchmark asks models to move through Wikipedia as a graph: start from one article, choose links step by step, and reach a target page as efficiently as possible. That makes the project part AI evaluation, part benchmark design, and part network-science experiment.
