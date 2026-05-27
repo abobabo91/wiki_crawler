@@ -128,7 +128,7 @@ Run the predefined benchmark set against one or more models:
 
 ```bash
 python run_tests.py openai/gpt-4o
-python run_tests.py openai/gpt-4o gemini/gemini-3.1-flash-lite-preview
+python run_tests.py openai/gpt-4o gemini/gemini-3.1-flash-lite
 ```
 
 ## Run a smoke test

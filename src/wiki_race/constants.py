@@ -38,7 +38,7 @@ MODELS = [
     {"id": "openai/gpt-4o", "name": "GPT-4o", "provider": "openai", "color": "#1a8c6c"},
     {"id": "openai/gpt-4o-mini", "name": "GPT-4o Mini", "provider": "openai", "color": "#148a6b"},
     {"id": "gemini/gemini-3.1-pro-preview", "name": "Gemini 3.1 Pro", "provider": "gemini", "color": "#0d652b"},
-    {"id": "gemini/gemini-3.1-flash-lite-preview", "name": "Gemini 3.1 Flash Lite", "provider": "gemini", "color": "#0f9d58"},
+    {"id": "gemini/gemini-3.1-flash-lite", "name": "Gemini 3.1 Flash Lite", "provider": "gemini", "color": "#0f9d58"},
     {"id": "gemini/gemini-3-pro-preview", "name": "Gemini 3 Pro", "provider": "gemini", "color": "#1b7a35"},
     {"id": "gemini/gemini-3-flash-preview", "name": "Gemini 3 Flash", "provider": "gemini", "color": "#34a853"},
     {"id": "gemini/gemini-2.5-flash", "name": "Gemini 2.5 Flash", "provider": "gemini", "color": "#4285f4"},
